@@ -25,7 +25,10 @@ binops = ( [ binopsl [ ("<=", BinOp (BRelOp Lte))
            , binopsl [ ("+", BinOp (BNumOp Add))
                      , ("-", BinOp (BNumOp Sub))
                      ]
-           , binopsl [ ("*", BinOp (BNumOp Mul)) ]
+           , binopsl [ ("*", BinOp (BNumOp Mul))
+                     , ("/", BinOp (BNumOp Div))
+                     , ("%", BinOp (BNumOp Mod))
+                     ]
            , application
            ]
          , argument

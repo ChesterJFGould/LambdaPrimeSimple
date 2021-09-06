@@ -40,6 +40,16 @@ compileStmts stmts = intercalate "\n" (map compileStmt stmts)
 
 compileStmt :: Stmt -> String
 compileStmt (Set reg triv) = unwords [ "mov", compileReg reg, ",", compileTriv triv ]
+compileStmt (NumOp Div l r) = intercalate "\n" [ unwords ["mov", compileReg RAX, ",", compileReg l]
+                                               , "cqo"
+                                               , unwords ["idiv", compileReg r]
+                                               , unwords ["mov", compileReg l, ",", compileReg RAX]
+                                               ]
+compileStmt (NumOp Mod l r) = intercalate "\n" [ unwords ["mov", compileReg RAX, ",", compileReg l]
+                                               , "cqo"
+                                               , unwords ["idiv", compileReg r]
+                                               , unwords ["mov", compileReg l, ",", compileReg RDX]
+                                               ]
 compileStmt (NumOp op l r) = unwords [ compileNumOp op, compileReg l, ",", compileReg r ]
 compileStmt (MRef reg ptr offset) = unwords [ "mov", compileReg reg, ",", compileMRef ptr offset ]
 compileStmt (MSet ptr offset val) = unwords [ "mov", compileMRef ptr offset, ",", compilePlace val ]
@@ -63,6 +73,7 @@ compileNumOp :: NumOp -> String
 compileNumOp Add = "add"
 compileNumOp Sub = "sub"
 compileNumOp Mul = "imul"
+compileNumOp Div = error "Code generation for division must be handled seperately"
 
 compileRelOp :: RelOp -> String
 compileRelOp Lt = "jl"

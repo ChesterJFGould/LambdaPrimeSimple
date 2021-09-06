@@ -21,6 +21,26 @@ conflictsExpr (free, Set loc triv body) =
             (bodyAlocs, bodyConflicts) = conflictsExpr body
             alocs = S.unions [locAlocs loc, trivAlocs triv, bodyAlocs]
         in (alocs, S.union conflicts bodyConflicts)
+conflictsExpr (free, NumOp Div l r body) =
+        let conflictingLocs = deleteLoc l free
+            conflicts = conflictsWith l conflictingLocs
+            conflictingLocs' = r O.|< conflictingLocs -- r is needed after RDX and RAX get clobbered
+            rdxConflicts = conflictsWith (MReg RDX) conflictingLocs' -- RDX gets clobbered
+            raxConflicts = conflictsWith (MReg RAX) conflictingLocs' -- RAX gets clobbered
+            conflicts' = S.union conflicts (S.union rdxConflicts raxConflicts)
+            (bodyAlocs, bodyConflicts) = conflictsExpr body
+            alocs = S.unions [locAlocs l, locAlocs r, bodyAlocs]
+        in (alocs, S.union conflicts' bodyConflicts)
+conflictsExpr (free, NumOp Mod l r body) =
+        let conflictingLocs = deleteLoc l free
+            conflicts = conflictsWith l conflictingLocs
+            conflictingLocs' = r O.|< conflictingLocs -- r is needed after RDX and RAX get clobbered
+            rdxConflicts = conflictsWith (MReg RDX) conflictingLocs' -- RDX gets clobbered
+            raxConflicts = conflictsWith (MReg RAX) conflictingLocs' -- RAX gets clobbered
+            conflicts' = S.union conflicts (S.union rdxConflicts raxConflicts)
+            (bodyAlocs, bodyConflicts) = conflictsExpr body
+            alocs = S.unions [locAlocs l, locAlocs r, bodyAlocs]
+        in (alocs, S.union conflicts' bodyConflicts)
 conflictsExpr (free, NumOp _ l r body) =
         let conflictingLocs = deleteLoc l free
             conflicts = conflictsWith l conflictingLocs

@@ -9,6 +9,8 @@ data BinOp = BNumOp NumOp
 data NumOp = Add
            | Sub
            | Mul
+           | Div
+           | Mod
            deriving Show
 
 data RelOp = Lt
