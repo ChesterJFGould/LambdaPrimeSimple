@@ -63,6 +63,7 @@ lowerExpr (If (RelOp op l r) c a) = C.If (C.RelOp op l r) <$> lowerExpr c
 lowerValue :: Value -> C.Value
 lowerValue (Int i) = C.Int i
 lowerValue (Bool b) = C.Bool b
+lowerValue (VLabel label) = C.VLabel label
 lowerValue (TupleRef tuple offset) = C.TupleRef tuple offset
 lowerValue (NumOp op l r) = C.NumOp op l r
 
@@ -132,6 +133,7 @@ freeVarsExpr (C.If (C.RelOp op l r) c a) =
 freeVarsValue :: C.Value -> S.Set Aloc
 freeVarsValue (C.Int _) = S.empty
 freeVarsValue (C.Bool _) = S.empty
+freeVarsValue (C.VLabel _) = S.empty
 freeVarsValue (C.Tuple elements) = S.fromList [ aloc | AAloc aloc <- elements ]
 freeVarsValue (C.TupleRef tuple _) = S.fromList [ aloc | AAloc aloc <- [tuple] ]
 freeVarsValue (C.NumOp _ l r) = S.fromList [l, r]
@@ -157,6 +159,7 @@ replaceExpr env (C.If (C.RelOp op l r) c a) =
 replaceValue :: M.Map Aloc Aloc -> C.Value -> C.Value
 replaceValue _ (C.Int i) = C.Int i
 replaceValue _ (C.Bool b) = C.Bool b
+replaceValue _ (C.VLabel label) = C.VLabel label
 replaceValue env (C.Tuple elements) = C.Tuple (replacePlaces env elements)
 replaceValue env (C.TupleRef tuple offset) = C.TupleRef (replacePlace env tuple) offset
 replaceValue env (C.NumOp op l r) =

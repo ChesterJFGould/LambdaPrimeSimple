@@ -14,8 +14,8 @@ start:
 	mov r9, 0 ; offset
 	syscall
 	mov rbp, rsp
-	sub rbp, 8388608; Why 8288608 and not 8388608? Because 8388608 segfaults and
-	                ; 8288608 doesn't, that's why.
+	sub rbp, 8370000; Why 8370000 and not 8388608? Because 8388608 segfaults and
+	                ; 8370000 doesn't, that's why.
 
 section .data
 main$2: dq 0
@@ -24,18 +24,19 @@ section .text
 mov RSP , RBP
 mov R10 , 0
 add RBP , R10
-mov QWORD [ fac$0 + 0 ] , func$23
-mov RCX , 10
-mov QWORD [ RBP + 0 ] , cont$26
+mov QWORD [ fac$0 + 0 ] , func$26
+mov RCX , fac$0
+mov RDX , 10
+mov QWORD [ RBP + 0 ] , cont$29
 mov RAX , RBP
 mov RBX , 8
 add RBP , RBX
-mov RBX , QWORD [ fac$0 + 0 ]
-mov RDI , fac$0
+mov RBX , QWORD [ RCX + 0 ]
+mov RDI , RCX
 mov RSI , RAX
-mov RDX , RCX
+mov RDX , RDX
 jmp RBX
-cont$20:
+cont$23:
 mov RSP , RBP
 mov R10 , 0
 add RBP , R10
@@ -49,7 +50,7 @@ mov RBX , QWORD [ RCX + 0 ]
 mov RDI , RCX
 mov RDX , RAX
 jmp RBX
-func$23:
+func$26:
 mov RSP , RBP
 mov R10 , 0
 add RBP , R10
@@ -58,35 +59,37 @@ mov RSI , RSI
 mov RAX , RDX
 mov RBX , 1
 cmp RAX , RBX
-jl consequence$30
+jl consequence$33
+mov RDX , fac$0
 mov RBX , 1
 mov RCX , RAX
 sub RCX , RBX
-mov QWORD [ RBP + 0 ] , cont$20
+mov QWORD [ RBP + 0 ] , cont$23
 mov QWORD [ RBP + 8 ] , RSI
 mov QWORD [ RBP + 16 ] , RAX
 mov RAX , RBP
 mov RBX , 24
 add RBP , RBX
-mov RBX , QWORD [ fac$0 + 0 ]
-mov RDI , fac$0
+mov RBX , QWORD [ RDX + 0 ]
+mov RDI , RDX
 mov RSI , RAX
 mov RDX , RCX
 jmp RBX
-consequence$30:
+consequence$33:
 mov RAX , 1
 mov RBX , QWORD [ RSI + 0 ]
 mov RDI , RSI
 mov RDX , RAX
 jmp RBX
-cont$26:
+cont$29:
 mov RSP , RBP
 mov R10 , 0
 add RBP , R10
 mov RAX , RDI
 mov RAX , RDX
 mov QWORD [ main$2 + 0 ] , RAX
-mov RAX , QWORD [ main$2 + 0 ]
+mov RBX , main$2
+mov RAX , QWORD [ RBX + 0 ]
 mov RBX , QWORD [ halt + 0 ]
 mov RDI , halt
 mov RDX , RAX
@@ -151,12 +154,6 @@ section .data
 
 len: equ 20
 msg: times len dw 0
-trueLen: equ 5
-true: db 'true', 0
-falseLen: equ 6
-false: db 'false', 0
-emptyLen: equ 3
-empty: db '[]', 0
 nl: db 0x0a
 halt: dq done
 

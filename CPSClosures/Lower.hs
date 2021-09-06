@@ -66,6 +66,8 @@ lowerExpr (Let aloc (Bool True) body) = A.Set (MAloc aloc) (MWord 1)
                                               <$> lowerExpr body
 lowerExpr (Let aloc (Bool False) body) = A.Set (MAloc aloc) (MWord 0)
                                                <$> lowerExpr body
+lowerExpr (Let aloc (VLabel label) body) = A.Set (MAloc aloc) (MPlace (MLabel label))
+                                                 <$> lowerExpr body
 lowerExpr (Let aloc (Tuple elements) body) = -- TODO: This can be made nicer
         do
         body' <- lowerExpr body

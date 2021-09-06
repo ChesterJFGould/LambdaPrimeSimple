@@ -1,36 +1,53 @@
 module Main where
 
-import AST
-import CPS
-import CPSAsm
-import CPSClosures
-import CPSFree
-import CPSRegisters
-import Globals
-import Lambda
+import qualified AST
+import AST.Types
+import qualified CPS
+import qualified CPSAsm
+import qualified CPSClosures
+import qualified CPSFree
+import qualified CPSRegisters
+import qualified Globals
+import qualified Lambda
 import Compiler.Gensym
-import Pred
-import S64
+import qualified Pred
+import qualified S64
 
 import Text.Pretty.Simple
 
+compile :: Program -> IO ()
+compile program =
+        do
+        prelude <- readFile "Runtime/prelude.s"
+        postlude <- readFile "Runtime/postlude.s"
+        ( putStrLn
+          . evalGensym
+          . fmap (S64.compile prelude postlude)
+          . (>>= CPSRegisters.lower)
+          . fmap CPSFree.lower
+          . fmap CPSAsm.lower
+          . (>>= CPSClosures.lower)
+          . (>>= CPS.lower)
+          . (>>= Globals.lower)
+          . (>>= Pred.lower)
+          . fmap Lambda.lower
+          . AST.lower
+          ) program
+
+prettyPrintCPS :: Program -> IO ()
+prettyPrintCPS program =
+        ( putStrLn
+          . evalGensym
+          . fmap CPS.prettyPrint
+          . (>>= Globals.lower)
+          . (>>= Pred.lower)
+          . fmap Lambda.lower
+          . AST.lower
+          ) program
+
+
 main :: IO ()
 main = do
-       prelude <- readFile "Runtime/prelude.s"
-       postlude <- readFile "Runtime/postlude.s"
-       getContents >>= either putStrLn putStrLn
-                       . (>>= return
-                              . evalGensym
-                              . fmap (S64.compile prelude postlude)
-                              . (>>= CPSRegisters.lower)
-                              . fmap CPSFree.lower
-                              . fmap CPSAsm.lower
-                              . (>>= CPSClosures.lower)
-                              . (>>= CPS.lower)
-                              . (>>= Globals.lower)
-                              . (>>= Pred.lower)
-                              . fmap Lambda.lower
-                              . AST.lower
-                         )
+       getContents >>= either putStrLn compile
                        . (>>= AST.check)
                        . AST.parse "stdin"

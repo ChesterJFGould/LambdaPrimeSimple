@@ -27,6 +27,7 @@ data Pred = RelOp RelOp Aloc Aloc
 
 data Value = Int Integer
            | Bool Bool
+           | VLabel Label
            | TupleRef APlace Int
            | NumOp NumOp Aloc Aloc
            deriving Show

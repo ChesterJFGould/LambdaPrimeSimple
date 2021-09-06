@@ -24,6 +24,7 @@ data Pred = RelOp RelOp Aloc Aloc
 
 data Value = Int Integer
            | Bool Bool
+           | VLabel Label
            | Tuple [APlace]
            | TupleRef APlace Int
            | NumOp NumOp Aloc Aloc
