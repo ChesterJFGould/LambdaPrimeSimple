@@ -1,4 +1,6 @@
-[ intId : Int -> Int
-| n = n
+[ boolId : Bool -> Bool
+| b = b
 ]
-[ main : Int = intId 10 ]
+[ main : Int
+= boolId true
+]

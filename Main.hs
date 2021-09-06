@@ -13,6 +13,8 @@ import Compiler.Gensym
 import qualified Pred
 import qualified S64
 
+import System.Exit
+import System.IO
 import Text.Pretty.Simple
 
 compile :: Program -> IO ()
@@ -45,9 +47,14 @@ prettyPrintCPS program =
           . AST.lower
           ) program
 
+handleError :: String -> IO ()
+handleError msg =
+        do
+        hPutStrLn stderr msg
+        exitFailure
 
 main :: IO ()
 main = do
-       getContents >>= either putStrLn compile
+       getContents >>= either handleError compile
                        . (>>= AST.check)
                        . AST.parse "stdin"
