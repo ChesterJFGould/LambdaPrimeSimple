@@ -91,6 +91,7 @@ These are things I want to implement, some of them would be significant enough t
 	- My current idea for this is to first try to do allocation *without* spilling via graph colouring with access to all registers except for the heap register. Then if this fails (i.e. it needs to spill some registers) we perform allocation with spilling via a second chance binpacking algorithm as this both allocates the registers and generates the spilling code in a single pass.
 + An optimizer at the `CPS` stage, this will mostly perform beta reduction (function inlining) but will probably also perform eta-reduction and dead variable elimination (although the latter might be better performed at `CPSAsm`, I'm not quite sure yet).
 + An optimizer at the `Lambda` stage, this will probably perform local optimizations such as constant folding.
++ A generational garbage collector based on "CONS should not CONS its arguments, part II: Cheney on the M.T.A.".
 + Support for multi-argument functions beginning at the `Lambda` language. Then using this for the worker/wrapper optimization as layed out in "Types are Calling Conventions" and callee saved registers as shown in "Calling with Continuations".
 + User defined data types and pattern matching in the ML tradition.
 + Polymorphism through a type system based on System-F (as is traditional). The hardest part of this might actually just be the type checker as we could just assume all values a representable as a machine word and then just perform operations upon those.
@@ -105,3 +106,13 @@ These are things I want to implement, some of them would be significant enough t
 
 + A module system, although I am still thinking about the best way to do this.
 	- One idea that struck me is the way in which sml/nj implements structures by just encoding them as records. It might be interesting to just take this to its logical conclusion and just make modules first class values with an actual type. This seems like it might not be too hard to implement (although I could be wrong and it could be very hard, there isn't a lot of literature on implementing module systems).
+
+# Sources
+Papers and books which helped me learn how to do all this or will probably be the source for future improvements.
++ [CPSC 411 Book](https://github.com/cpsc411/cpsc411-book)
++ [Compiling with Continuations](https://www.scinapse.io/papers/1580664042)
++ [Compiling with Continuations Continued](https://www.microsoft.com/en-us/research/wp-content/uploads/2007/10/compilingwithcontinuationscontinued.pdf)
++ [CONS should not CONS its arguments, part II: Cheney on the M.T.A.](https://www.scinapse.io/papers/1990351075)
++ [Types are Calling Conventions](https://www.microsoft.com/en-us/research/wp-content/uploads/2016/08/tacc-hs09.pdf)
++ [No-brainer CPS conversion](https://www.scinapse.io/papers/2751258746)
++ [Quality and speed in linear-scan register allocation](https://www.scinapse.io/papers/2141582038)
