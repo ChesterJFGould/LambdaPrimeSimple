@@ -92,6 +92,7 @@ These are things I want to implement, some of them would be significant enough t
 + An optimizer at the `CPS` stage, this will mostly perform beta reduction (function inlining) but will probably also perform eta-reduction and dead variable elimination (although the latter might be better performed at `CPSAsm`, I'm not quite sure yet).
 + An optimizer at the `Lambda` stage, this will probably perform local optimizations such as constant folding.
 + Support for multi-argument functions beginning at the `Lambda` language. Then using this for the worker/wrapper optimization as layed out in "Types are Calling Conventions" and callee saved registers as shown in "Calling with Continuations".
++ User defined data types and pattern matching in the ML tradition.
 + Polymorphism through a type system based on System-F (as is traditional). The hardest part of this might actually just be the type checker as we could just assume all values a representable as a machine word and then just perform operations upon those.
 + First class continuations.
 	- This might be done through exposing an implicit `return` variable in every function (think like the implicit `this` variable in objects) which is bound to the continuation of that function. This could then be used to implement `call/cc` as a derived form as the following (although it might be actually useless, it serves to demonstrate the idea).
