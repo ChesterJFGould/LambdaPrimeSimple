@@ -4,6 +4,7 @@ module AST.DefCheck
 where
 
 import AST.Types
+import Compiler.Types
 import Data.List
 
 -- Make sure each global is defined once, check recursive defs are immediate

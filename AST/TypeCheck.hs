@@ -5,15 +5,11 @@ where
 
 import AST.Types
 import Compiler.Types
+import qualified TAST.Types as T
 
+import Control.Monad.Except
 import Control.Monad.State
-import Control.Monad.Writer
 import qualified Data.Map as M
-
-data Type = TInt
-          | TBool
-          | TFunc Type Type
-          deriving Eq
 
 instance Show Type where
          show TInt = showType TInt
@@ -32,10 +28,10 @@ showType (TFunc from to) = unwords [ showType from
                                    , showType to
                                    ]
 
-type Check a = WriterT [CheckError] (State (M.Map Var Type)) a
+type Check a = ExceptT [CheckError] (State (M.Map Var Type)) a
 
-execCheck :: Check a -> [CheckError]
-execCheck computation = evalState (execWriterT computation) M.empty
+execCheck :: Check a -> Either [CheckError] a
+execCheck computation = evalState (runExceptT computation) M.empty
 
 typeAnnToType :: TTypeAnn -> Type
 typeAnnToType (_, TAInt) = TInt
@@ -43,10 +39,10 @@ typeAnnToType (_, TABool) = TBool
 typeAnnToType (_, TAFunc from to) = TFunc (typeAnnToType from)
                                           (typeAnnToType to)
 
-typeCheck :: Program -> [CheckError]
+typeCheck :: Program -> Either [CheckError] T.Program
 typeCheck (Program def) = execCheck ( typeCheckProgramDef def )
 
-typeCheckProgramDef :: TProgramDef -> Check ()
+typeCheckProgramDef :: TProgramDef -> Check T.TProgramDef
 typeCheckProgramDef (_, Main) = return ()
 typeCheckProgramDef (_, LetDef def restDefs) =
         do
@@ -54,7 +50,8 @@ typeCheckProgramDef (_, LetDef def restDefs) =
         let defName = extractDefName def
             defType = extractDefType def
         putVarType defName defType
-        typeCheckProgramDef restDefs
+        restDefs'@(typ, _) <- typeCheckProgramDef restDefs
+        return (typ, C
 typeCheckProgramDef (_, LetRecDefs defs restDefs) =
         do
         let defNames = map extractDefName defs
@@ -67,15 +64,15 @@ typeCheckDef :: TDef -> Check ()
 typeCheckDef def@(defPos, Def (_, Var "main") typeAnn _ _) =
         case typeAnnToType typeAnn of
              TInt -> typeCheckDef' def
-             mainType -> tell [ WithPos defPos ( unwords [ "Expected definition for"
-                                                         , quote "main"
-                                                         , "to have type"
-                                                         , show TInt
-                                                         , "but it is actually of type"
-                                                         , show mainType
-                                                         ]
-                                               )
-                              ]
+             mainType -> throwError [ WithPos defPos ( unwords [ "Expected definition for"
+                                                               , quote "main"
+                                                               , "to have type"
+                                                               , show TInt
+                                                               , "but it is actually of type"
+                                                               , show mainType
+                                                               ]
+                                                     )
+                                    ]
 typeCheckDef def = typeCheckDef' def
 
 typeCheckDef' :: TDef -> Check ()
@@ -128,7 +125,7 @@ typeCheckExpr (exprPos, BinOp op l r) =
              Nothing -> return ()
              Just lType
                   | lType == expectedLType -> return ()
-                  | otherwise -> tell [ WithPos exprPos
+                  | otherwise -> throw [ WithPos exprPos
                                                 ( unwords [ "Left operand in use of binop"
                                                           , quote (binopPretty op)
                                                           , "was expected to be of type"

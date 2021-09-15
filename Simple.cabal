@@ -60,11 +60,11 @@ executable Simple
 	  Pred.Types,
 	  S64,
 	  S64.Compile,
-	  S64.Types
+	  S64.Types,
+	  TAST.Types
   -- other-extensions:
   build-depends:
 	  base,
-	  bimap,
 	  containers,
 	  megaparsec,
 	  mtl,

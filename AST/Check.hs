@@ -15,11 +15,10 @@ check prog = do
              case defErrors of
                   [] -> Right ()
                   _ -> Left (formatErrors defErrors)
-             let typeErrors = typeCheck prog
-             case typeErrors of
-                  [] -> Right ()
-                  _ -> Left (formatErrors typeErrors)
-             Right prog
+             let typeErrorsOrProg = typeCheck prog
+             case typeErrorsOrProg of
+                  Right prog -> Right prog
+                  Left typeErrors -> Left (formatErrors typeErrors)
 
 formatErrors :: [CheckError] -> String
 formatErrors errors = intercalate "\n\n" (map formatError errors)

@@ -2,6 +2,12 @@ module Compiler.Types where
 
 import Data.Word
 
+data FileLocation = FileLocation { file :: String
+                                 , line :: Int
+                                 , column :: Int
+                                 }
+                                 deriving Show
+
 data BinOp = BNumOp NumOp
            | BRelOp RelOp
            deriving Show
