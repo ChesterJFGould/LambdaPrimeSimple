@@ -4,7 +4,7 @@ import Compiler.Types
 
 data Type = TInt
           | TBool
-          | TFunc
+          | TFunc Type Type
 
 type Tagged val = (FileLocation, Type, val)
 
@@ -13,10 +13,8 @@ data Program = Program TProgramDef
 type TProgramDef = Tagged ProgramDef
 
 data ProgramDef = Main
-                | LetDef TDef TProgramDef
-                | LetRecDefs [TDef] TProgramDef
-
-type TDef = Tagged Def
+                | LetDef Def TProgramDef
+                | LetRecDefs [Def] TProgramDef
 
 data Def = Def TVar [TVar] TBody
 
