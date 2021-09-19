@@ -6,10 +6,11 @@ where
 import AST.DefCheck
 import AST.TypeCheck
 import AST.Types
+import qualified TAST.Types as T
 
 import Data.List
 
-check :: Program -> Either String Program
+check :: Program -> Either String T.Program
 check prog = do
              let defErrors = defCheck prog
              case defErrors of

@@ -1,9 +1,9 @@
-module AST.Lower
+module TAST.Lower
 ( lower
 )
 where
 
-import AST.Types
+import TAST.Types
 import Compiler.Gensym
 import Compiler.Types
 import qualified Lambda.Types as L
@@ -20,15 +20,15 @@ lower :: Program -> Gensym L.Program
 lower (Program def) = evalEnv (L.Program <$> lowerProgramDef def)
 
 lowerProgramDef :: TProgramDef -> Env L.Expr
-lowerProgramDef (_, Main) = (L.Value . L.Place) <$> lowerVar (Var "main")
-lowerProgramDef (_, LetDef def restDefs) =
+lowerProgramDef (_, _, Main) = (L.Value . L.Place) <$> lowerVar (Var "main")
+lowerProgramDef (_, _, LetDef def restDefs) =
         do
         defBody <- lowerDef def
         let defVar = extractDefVar def
         defLabel <- lowerLabel defVar
         putVarLabel defVar defLabel
         L.LetGlobal defLabel defBody <$> lowerProgramDef restDefs
-lowerProgramDef (_, LetRecDefs defs restDefs) =
+lowerProgramDef (_, _, LetRecDefs defs restDefs) =
         do
         let defVars = map extractDefVar defs
         defLabels <- mapM lowerLabel defVars
@@ -36,10 +36,10 @@ lowerProgramDef (_, LetRecDefs defs restDefs) =
         defBodies <- mapM lowerDef defs
         L.LetGlobals defLabels defBodies <$> lowerProgramDef restDefs
 
-lowerDef :: TDef -> Env L.Expr
-lowerDef (_, Def _ _ args body) =
+lowerDef :: Def -> Env L.Expr
+lowerDef (Def _ args body) =
         encapsulate ( do
-                      let argVars = [ argVar | (_, argVar) <- args ]
+                      let argVars = [ argVar | (_, _, argVar) <- args ]
                       argAlocs <- mapM lowerAloc argVars
                       mapM (uncurry putVarAloc) (zip argVars argAlocs)
                       body' <- lowerBody body
@@ -47,35 +47,35 @@ lowerDef (_, Def _ _ args body) =
                     )
 
 lowerBody :: TBody -> Env L.Expr
-lowerBody (_, Body expr) = lowerExpr expr
+lowerBody (_, _, Body expr) = lowerExpr expr
 
 lowerExpr :: TExpr -> Env L.Expr
-lowerExpr (_, Value value) = L.Value <$> lowerValue value
-lowerExpr (_, BinOp op l r) = L.BinOp op <$> lowerExpr l
+lowerExpr (_, _, Value value) = L.Value <$> lowerValue value
+lowerExpr (_, _, BinOp op l r) = L.BinOp op <$> lowerExpr l
                                          <*> lowerExpr r
-lowerExpr (_, Apply f arg) = L.Apply <$> lowerExpr f
+lowerExpr (_, _, Apply f arg) = L.Apply <$> lowerExpr f
                                      <*> lowerExpr arg
-lowerExpr (_, Lambda (_, var) _ bodyExpr) =
+lowerExpr (_, _, Lambda (_, _, var) bodyExpr) =
         encapsulate ( do
                       aloc <- lowerAloc var
                       putVarAloc var aloc
                       L.Lambda aloc <$> lowerExpr bodyExpr
                     )
-lowerExpr (_, Let (_, var) val body) =
+lowerExpr (_, _, Let (_, _, var) val body) =
         encapsulate ( do
                       aloc <- lowerAloc var
                       val' <- lowerExpr val
                       putVarAloc var aloc
                       L.Let aloc val' <$> lowerExpr body
                     )
-lowerExpr (_, If p c a) = L.If <$> lowerExpr p
+lowerExpr (_, _, If p c a) = L.If <$> lowerExpr p
                                <*> lowerExpr c
                                <*> lowerExpr a
 
 lowerValue :: TValue -> Env L.Value
-lowerValue (_, Int i) = return (L.Int i)
-lowerValue (_, Bool b) = return (L.Bool b)
-lowerValue (_, VVar (_, var)) = L.Place <$> lowerVar var
+lowerValue (_, _, Int i) = return (L.Int i)
+lowerValue (_, _, Bool b) = return (L.Bool b)
+lowerValue (_, _, VVar (_, _, var)) = L.Place <$> lowerVar var
 
 lowerLabel :: Var -> Env Label
 lowerLabel (Var template) = lift (genLabel template)
@@ -84,23 +84,23 @@ lowerAloc :: Var -> Env Aloc
 lowerAloc (Var template) = lift (genAloc template)
 
 lowerVar :: Var -> Env APlace
-lowerVar var =
+lowerVar var@(Var varName) =
         do
         env <- get
         return (env M.! var)
 
-extractDefVar :: TDef -> Var
-extractDefVar (_, Def (_, var) _ _ _) = var
+extractDefVar :: Def -> Var
+extractDefVar (Def (_, _, var) _ _) = var
 
 putVarLabel :: Var -> Label -> Env ()
-putVarLabel var label =
+putVarLabel var@(Var varName) label =
         do
         env <- get
         let env' = M.insert var (ALabel label) env
         put env'
 
 putVarAloc :: Var -> Aloc -> Env ()
-putVarAloc var aloc =
+putVarAloc var@(Var varName) aloc =
         do
         env <- get
         let env' = M.insert var (AAloc aloc) env

@@ -22,7 +22,6 @@ executable Simple
 	  AST,
 	  AST.Check,
 	  AST.DefCheck,
-	  AST.Lower,
 	  AST.Parse,
 	  AST.TypeCheck,
 	  AST.Types,
@@ -61,6 +60,8 @@ executable Simple
 	  S64,
 	  S64.Compile,
 	  S64.Types,
+	  TAST,
+	  TAST.Lower,
 	  TAST.Types
   -- other-extensions:
   build-depends:
