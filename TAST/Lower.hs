@@ -19,24 +19,32 @@ evalEnv computation = evalStateT computation M.empty
 lower :: Program -> Gensym L.Program
 lower (Program def) = evalEnv (L.Program <$> lowerProgramDef def)
 
-lowerProgramDef :: TProgramDef -> Env L.Expr
-lowerProgramDef (_, _, Main) = (L.Value . L.Place) <$> lowerVar (Var "main")
-lowerProgramDef (_, _, LetDef def restDefs) =
+lowerProgramDef :: TProgramDef -> Env L.TExpr
+lowerProgramDef (_, typ, Main) =
+        do
+        mainVar <- lowerVar (Var "main")
+        let typ' = lowerType typ
+        return (typ', L.Value (typ', L.Place mainVar))
+lowerProgramDef (_, typ, LetDef def restDefs) =
         do
         defBody <- lowerDef def
         let defVar = extractDefVar def
         defLabel <- lowerLabel defVar
         putVarLabel defVar defLabel
-        L.LetGlobal defLabel defBody <$> lowerProgramDef restDefs
-lowerProgramDef (_, _, LetRecDefs defs restDefs) =
+        restDefs' <- lowerProgramDef restDefs
+        let typ' = lowerType typ
+        return (typ', L.LetGlobal defLabel defBody restDefs')
+lowerProgramDef (_, typ, LetRecDefs defs restDefs) =
         do
         let defVars = map extractDefVar defs
         defLabels <- mapM lowerLabel defVars
         mapM (uncurry putVarLabel) (zip defVars defLabels)
         defBodies <- mapM lowerDef defs
-        L.LetGlobals defLabels defBodies <$> lowerProgramDef restDefs
+        restDefs' <- lowerProgramDef restDefs
+        let typ' = lowerType typ
+        return (typ', L.LetGlobals defLabels defBodies restDefs')
 
-lowerDef :: Def -> Env L.Expr
+lowerDef :: Def -> Env L.TExpr
 lowerDef (Def _ args body) =
         encapsulate ( do
                       let argVars = [ argVar | (_, _, argVar) <- args ]
@@ -46,11 +54,14 @@ lowerDef (Def _ args body) =
                       return (foldr L.Lambda body' argAlocs)
                     )
 
-lowerBody :: TBody -> Env L.Expr
-lowerBody (_, _, Body expr) = lowerExpr expr
+lowerBody :: TBody -> Env L.TExpr
+lowerBody (_, typ, Body expr) = (lowerType typ, lowerExpr expr)
 
-lowerExpr :: TExpr -> Env L.Expr
-lowerExpr (_, _, Value value) = L.Value <$> lowerValue value
+lowerExpr :: TExpr -> Env L.TExpr
+lowerExpr (_, typ, Value value) =
+	do
+
+	L.Value <$> lowerValue value
 lowerExpr (_, _, BinOp op l r) = L.BinOp op <$> lowerExpr l
                                          <*> lowerExpr r
 lowerExpr (_, _, Apply f arg) = L.Apply <$> lowerExpr f
@@ -72,7 +83,7 @@ lowerExpr (_, _, If p c a) = L.If <$> lowerExpr p
                                <*> lowerExpr c
                                <*> lowerExpr a
 
-lowerValue :: TValue -> Env L.Value
+lowerValue :: TValue -> Env L.TValue
 lowerValue (_, _, Int i) = return (L.Int i)
 lowerValue (_, _, Bool b) = return (L.Bool b)
 lowerValue (_, _, VVar (_, _, var)) = L.Place <$> lowerVar var
@@ -88,6 +99,12 @@ lowerVar var@(Var varName) =
         do
         env <- get
         return (env M.! var)
+
+lowerType :: Type -> L.Type
+lowerType TInt = L.TInt
+lowerType TBool = L.TBool
+lowerType (TFunc from to) = L.TFunc (lowerType from)
+                                    (lowerType to)
 
 extractDefVar :: Def -> Var
 extractDefVar (Def (_, _, var) _ _) = var
