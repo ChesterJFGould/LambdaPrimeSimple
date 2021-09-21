@@ -47,15 +47,16 @@ typeCheckProgramDef (loc, LetDef def restDefs) =
         putVarType defName defType
         restDefs'@(_, typ, _) <- typeCheckProgramDef restDefs
         return (loc, typ, T.LetDef def' restDefs')
-typeCheckProgramDef (_, LetRecDefs defs restDefs) =
+typeCheckProgramDef (defsLoc, LetRecDefs defs restDefs) =
         do
         let defNames = map extractDefName defs
             defTypes = map extractDefType defs
         mapM (uncurry putVarType) (zip defNames defTypes)
-        mapM typeCheckDef defs
-        typeCheckProgramDef restDefs
+        defs' <- mapM typeCheckDef defs
+        restDefs'@(_, typ, _) <- typeCheckProgramDef restDefs
+        return (defsLoc, typ, T.LetRecDefs defs' restDefs')
 
-typeCheckDef :: TDef -> Check T.TDef
+typeCheckDef :: TDef -> Check T.Def
 typeCheckDef def@(defPos, Def (_, Var "main") typeAnn _ _) =
         case typeAnnToType typeAnn of
              T.TInt -> typeCheckDef' def
@@ -71,34 +72,33 @@ typeCheckDef def@(defPos, Def (_, Var "main") typeAnn _ _) =
 typeCheckDef def = typeCheckDef' def
 
 typeCheckDef' :: TDef -> Check T.Def
-typeCheckDef' (_, Def (_, Var defName) typeAnn args body) =
+typeCheckDef' (_, Def defName typeAnn args body) =
         encapsulate ( do
                       let defType = typeAnnToType typeAnn
                       typeCheckArgsBody defName defType args body
                     )
 
 typeCheckArgsBody :: TVar -> T.Type -> [TVar] -> TBody -> Check T.Def
-typeCheckArgsBody defName expectedBodyType [] body@(bodyPos, _) =
+typeCheckArgsBody (nameLoc, Var defName) expectedBodyType [] body@(bodyPos, _) =
         do
-        maybeBodyType <- typeCheckBody body
-        case maybeBodyType of
-             Nothing -> return ()
-             Just bodyType
-                  | bodyType == expectedBodyType -> return (T.Def
-                  | otherwise -> throwError [ WithPos bodyPos ( unwords [ "Body for definition of"
-                                                                        , quote defName
-                                                                        , "was expected to be of type"
-                                                                        , prettyPrintType expectedBodyType
-                                                                        , "but is actually of type"
-                                                                        , prettyPrintType bodyType
-                                                                        ]
-                                                              )
-                                            ]
-typeCheckArgsBody defName (T.TFunc from to) ((_, arg) : rest) body =
+        body'@(_, bodyType, _) <- typeCheckBody body
+        if bodyType == expectedBodyType
+        then return (T.Def (nameLoc, bodyType, T.Var defName) [] body')
+        else throwError [ WithPos bodyPos ( unwords [ "Body for definition of"
+                                                    , quote defName
+                                                    , "was expected to be of type"
+                                                    , prettyPrintType expectedBodyType
+                                                    , "but is actually of type"
+                                                    , prettyPrintType bodyType
+                                                    ]
+                                          )
+                        ]
+typeCheckArgsBody defName (T.TFunc from to) ((argLoc, arg@(Var argName)) : rest) body =
         do
         putVarType arg from
-        typeCheckArgsBody defName to rest body
-typeCheckArgsBody defName _ ((argPos, _) : _) _ =
+        (T.Def defName' args' body') <- typeCheckArgsBody defName to rest body
+        return (T.Def defName' ((argLoc, from, T.Var argName) : args') body')
+typeCheckArgsBody (_, Var defName) _ ((argPos, _) : _) _ =
         throwError [ WithPos argPos
                              ( unwords [ "Too many arguments in definition for"
                                        , defName
@@ -106,56 +106,47 @@ typeCheckArgsBody defName _ ((argPos, _) : _) _ =
                              )
                    ]
 
-typeCheckBody :: TBody -> Check (Maybe T.Type)
-typeCheckBody (_, Body expr) = typeCheckExpr expr
+typeCheckBody :: TBody -> Check T.TBody
+typeCheckBody (bodyLoc, Body expr) = raiseTagged bodyLoc T.Body <$> typeCheckExpr expr
 
-typeCheckExpr :: TExpr -> Check (Maybe T.Type)
-typeCheckExpr (_, Value value) = typeCheckValue value
-typeCheckExpr (exprPos, BinOp op l r) =
+typeCheckExpr :: TExpr -> Check T.TExpr
+typeCheckExpr (valueLoc, Value value) = raiseTagged valueLoc T.Value <$> typeCheckValue value
+typeCheckExpr (exprLoc, BinOp op l r) =
         do
         let (expectedLType, expectedRType, retType) = opTypes op
-        maybeLType <- typeCheckExpr l
-        maybeRType <- typeCheckExpr r
-        case maybeLType of
-             Nothing -> return ()
-             Just lType
-                  | lType == expectedLType -> return ()
-                  | otherwise -> throwError [ WithPos exprPos
-                                                      ( unwords [ "Left operand in use of binop"
-                                                                , quote (binopPretty op)
-                                                                , "was expected to be of type"
-                                                                , prettyPrintType expectedLType
-                                                                , "but is actually of type"
-                                                                , prettyPrintType lType
-                                                                ]
-                                                      )
+        (l'@(_, lType, _), r'@(_, rType, _)) <- combineErrors (typeCheckExpr l)
+                                                              (typeCheckExpr r)
+        if lType /= expectedLType
+        then throwError [ WithPos exprLoc
+                                  ( unwords [ "Left operand in use of binop"
+                                            , quote (binopPretty op)
+                                            , "was expected to be of type"
+                                            , prettyPrintType expectedLType
+                                            , "but is actually of type"
+                                            , prettyPrintType lType
                                             ]
-        case maybeRType of
-             Nothing -> return ()
-             Just rType
-                  | rType == expectedRType -> return ()
-                  | otherwise -> throwError [ WithPos exprPos
-                                                      ( unwords [ "Right operand in use of binop"
-                                                                , quote (binopPretty op)
-                                                                , "was expected to be of type"
-                                                                , prettyPrintType expectedRType
-                                                                , "but is actually of type"
-                                                                , prettyPrintType rType
-                                                                ]
-                                                      )
+                                  )
+                        ]
+        else if rType /= expectedRType
+        then throwError [ WithPos exprLoc
+                                  ( unwords [ "Right operand in use of binop"
+                                            , quote (binopPretty op)
+                                            , "was expected to be of type"
+                                            , prettyPrintType expectedRType
+                                            , "but is actually of type"
+                                            , prettyPrintType rType
                                             ]
-        return (Just retType)
-typeCheckExpr (exprPos, Apply f arg) =
+                                  )
+                        ]
+        else return (exprLoc, retType, T.BinOp op l' r')
+typeCheckExpr (exprLoc, Apply f arg) =
         do
-        maybeFType <- typeCheckExpr f
-        maybeArgType <- typeCheckExpr arg
-        case (maybeFType, maybeArgType) of
-             (Nothing, _) -> return Nothing
-             (_, Nothing) -> return Nothing
-             (Just (T.TFunc expectedArgType retType), Just argType)
-              | argType == expectedArgType -> return (Just retType)
-              | otherwise -> do
-                             throwError [ WithPos exprPos
+        (f'@(_, fType, _), arg'@(_, argType, _)) <- combineErrors (typeCheckExpr f)
+                                                                  (typeCheckExpr arg)
+        case fType of
+             (T.TFunc expectedArgType retType)
+              | argType == expectedArgType -> return (exprLoc, retType, T.Apply f' arg')
+              | otherwise -> throwError [ WithPos exprLoc
                                                   ( unwords [ "Argument in function application was expected to be of type"
                                                             , prettyPrintType expectedArgType
                                                             , "but is actually of type"
@@ -163,55 +154,37 @@ typeCheckExpr (exprPos, Apply f arg) =
                                                             ]
                                                   )
                                         ]
-                             return Nothing
-             (Just fType, _) -> do
-                                throwError [ WithPos exprPos
-                                                     ( unwords [ "Cannot use non-function of type"
-                                                               , prettyPrintType fType
-                                                               , "as the function in a function application"
-                                                               ]
-                                                     )
-                                           ]
-                                return Nothing
-typeCheckExpr (exprPos, Lambda (_, var) typeAnn body) =
+             _ -> throwError [ WithPos exprLoc
+                                       ( unwords [ "Cannot use non-function of type"
+                                                 , prettyPrintType fType
+                                                 , "as the function in a function application"
+                                                 ]
+                                       )
+                             ]
+typeCheckExpr (exprLoc, Lambda (varPos, var@(Var varName)) typeAnn body) =
         encapsulate ( do
                       let varType = typeAnnToType typeAnn
                       putVarType var varType
-                      maybeBodyType <- typeCheckExpr body
-                      return ( maybeBodyType >>= return . T.TFunc varType )
+                      body'@(_, bodyType, _) <- typeCheckExpr body
+                      return (exprLoc, T.TFunc varType bodyType, T.Lambda (varPos, varType, T.Var varName) body')
                     )
-typeCheckExpr (exprPos, Let (_, var) val body) =
+typeCheckExpr (exprLoc, Let (varLoc, var@(Var varName)) val body) =
         encapsulate ( do
-                      maybeValType <- typeCheckExpr val
-                      case maybeValType of
-                           Nothing -> return Nothing
-                           Just valType -> do
-                                           putVarType var valType
-                                           typeCheckExpr body
+                      val'@(_, valType, _) <- typeCheckExpr val
+                      putVarType var valType
+                      body'@(_, bodyType, _) <- typeCheckExpr body
+                      return (exprLoc, bodyType, T.Let (varLoc, valType, T.Var varName) val' body')
                     )
-typeCheckExpr (exprPos, If p@(pPos, _) c a) =
+typeCheckExpr (exprLoc, If p@(pPos, _) c a) =
         do
-        maybePType <- typeCheckExpr p
-        maybeCType <- typeCheckExpr c
-        maybeAType <- typeCheckExpr a
-        case maybePType of
-             Nothing -> return ()
-             Just T.TBool -> return ()
-             Just pType -> throwError [ WithPos pPos
-                                                ( unwords [ "The if expression predicated was expected to be of type"
-                                                          , prettyPrintType T.TBool
-                                                          , "but is actually of type"
-                                                          , prettyPrintType pType
-                                                          ]
-                                                )
-                                      ]
-        case (maybeCType, maybeAType) of
-             (Nothing, _) -> return Nothing
-             (_, Nothing) -> return Nothing
-             (Just cType, Just aType)
-              | cType == aType -> return (Just cType)
-              | otherwise -> do
-                             throwError [ WithPos exprPos
+        (p'@(_, pType, _), (c'@(_, cType, _), a'@(_, aType, _))) <-
+                combineErrors (typeCheckExpr p)
+                              (combineErrors (typeCheckExpr c)
+                                       (typeCheckExpr a))
+        case pType of
+             T.TBool
+              | cType == aType -> return (exprLoc, cType, T.If p' c' a')
+              | otherwise -> throwError [ WithPos exprLoc
                                                   ( unwords [ "The if expression branches have different types."
                                                             , "The consequence is of type"
                                                             , prettyPrintType cType
@@ -220,24 +193,47 @@ typeCheckExpr (exprPos, If p@(pPos, _) c a) =
                                                             ]
                                                   )
                                         ]
-                             return Nothing
+             _ -> throwError [ WithPos pPos
+                                       ( unwords [ "The if expression predicate was expected to be of type"
+                                                 , prettyPrintType T.TBool
+                                                 , "but is actually of type"
+                                                 , prettyPrintType pType
+                                                 ]
+                                       )
+                             ]
 
-typeCheckValue :: TValue -> Check (Maybe T.Type)
-typeCheckValue (_, Int _) = return (Just T.TInt)
-typeCheckValue (_, Bool _) = return (Just T.TBool)
-typeCheckValue (valPos, VVar (_, var@(Var varName))) =
+typeCheckValue :: TValue -> Check T.TValue
+typeCheckValue (valueLoc, Int i) = return (valueLoc, T.TInt, T.Int i)
+typeCheckValue (valueLoc, Bool b) = return (valueLoc, T.TBool, T.Bool b)
+typeCheckValue (valueLoc, VVar (varPos, var@(Var varName))) =
         do
         maybeVarType <- lookupVarType var
         case maybeVarType of
-             Nothing -> do
-                        throwError [ WithPos valPos
+             Nothing -> throwError [ WithPos valueLoc
                                              ( unwords [ "Undefined variable"
                                                        , varName
                                                        ]
                                              )
                                    ]
-                        return Nothing
-             Just varType -> return (Just varType)
+             Just varType -> return (raiseTagged valueLoc T.VVar (varPos, varType, T.Var varName))
+
+raiseTagged :: FileLocation -> (T.Tagged a -> b) -> T.Tagged a -> T.Tagged b
+raiseTagged loc cons val@(_, typ, _) = (loc, typ, cons val)
+
+combineErrors :: Check a -> Check b -> Check (a, b)
+combineErrors computationA computationB =
+        do
+        resultA <- catchError computationA
+                              (\errA ->
+                               do
+                               catchError computationB
+                                          (\errB ->
+                                           throwError (errA ++ errB)
+                                          )
+                               throwError errA
+                              )
+        resultB <- computationB
+        return (resultA, resultB)
 
 encapsulate :: Check a -> Check a
 encapsulate computation =

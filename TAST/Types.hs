@@ -5,6 +5,7 @@ import Compiler.Types
 data Type = TInt
           | TBool
           | TFunc Type Type
+          deriving Eq
 
 type Tagged val = (FileLocation, Type, val)
 
@@ -40,3 +41,4 @@ data Value = Int Integer
 type TVar = Tagged Var
 
 data Var = Var String
+         deriving (Eq, Ord, Show)

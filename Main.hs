@@ -1,7 +1,6 @@
 module Main where
 
 import qualified AST
-import AST.Types
 import qualified CPS
 import qualified CPSAsm
 import qualified CPSClosures
@@ -12,6 +11,8 @@ import qualified Lambda
 import Compiler.Gensym
 import qualified Pred
 import qualified S64
+import qualified TAST
+import TAST.Types
 
 import System.Exit
 import System.IO
@@ -33,7 +34,7 @@ compile program =
           . (>>= Globals.lower)
           . (>>= Pred.lower)
           . fmap Lambda.lower
-          . AST.lower
+          . TAST.lower
           ) program
 
 prettyPrintCPS :: Program -> IO ()
@@ -44,7 +45,7 @@ prettyPrintCPS program =
           . (>>= Globals.lower)
           . (>>= Pred.lower)
           . fmap Lambda.lower
-          . AST.lower
+          . TAST.lower
           ) program
 
 handleError :: String -> IO ()
