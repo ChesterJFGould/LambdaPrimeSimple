@@ -28,65 +28,87 @@ lowerProgramDef (_, typ, Main) =
 lowerProgramDef (_, typ, LetDef def restDefs) =
         do
         defBody <- lowerDef def
-        let defVar = extractDefVar def
+        let (_, defVarType, defVar) = extractDefVar def
         defLabel <- lowerLabel defVar
+        let defLabelType = lowerType defVarType
         putVarLabel defVar defLabel
         restDefs' <- lowerProgramDef restDefs
         let typ' = lowerType typ
-        return (typ', L.LetGlobal defLabel defBody restDefs')
+        return (typ', L.LetGlobal (defLabelType, defLabel) defBody restDefs')
 lowerProgramDef (_, typ, LetRecDefs defs restDefs) =
         do
-        let defVars = map extractDefVar defs
+        let defTVars = map extractDefVar defs
+            defVars = [ defVar | (_, _, defVar) <- defTVars ]
+            defVarTypes = [ defVarType | (_, defVarType, _) <- defTVars ]
         defLabels <- mapM lowerLabel defVars
+        let defLabelTypes = map lowerType defVarTypes
+            defTLabels = zip defLabelTypes defLabels
         mapM (uncurry putVarLabel) (zip defVars defLabels)
         defBodies <- mapM lowerDef defs
         restDefs' <- lowerProgramDef restDefs
         let typ' = lowerType typ
-        return (typ', L.LetGlobals defLabels defBodies restDefs')
+        return (typ', L.LetGlobals defTLabels defBodies restDefs')
 
 lowerDef :: Def -> Env L.TExpr
-lowerDef (Def _ args body) =
-        encapsulate ( do
-                      let argVars = [ argVar | (_, _, argVar) <- args ]
-                      argAlocs <- mapM lowerAloc argVars
-                      mapM (uncurry putVarAloc) (zip argVars argAlocs)
-                      body' <- lowerBody body
-                      return (foldr L.Lambda body' argAlocs)
-                    )
+lowerDef (Def _ args body) = encapsulate (lowerDefArgs args body)
+
+lowerDefArgs :: [TVar] -> TBody -> Env L.TExpr
+lowerDefArgs [] body = lowerBody body
+lowerDefArgs ((_, varType, var) : rest) body =
+        do
+        aloc <- lowerAloc var
+        putVarAloc var aloc
+        body'@(bodyType, _) <- lowerDefArgs rest body
+        let varType' = lowerType varType
+        return (L.TFunc varType' bodyType, L.Lambda (varType', aloc) body')
 
 lowerBody :: TBody -> Env L.TExpr
-lowerBody (_, typ, Body expr) = (lowerType typ, lowerExpr expr)
+lowerBody (_, _, Body expr) = lowerExpr expr
 
 lowerExpr :: TExpr -> Env L.TExpr
 lowerExpr (_, typ, Value value) =
-	do
-
-	L.Value <$> lowerValue value
-lowerExpr (_, _, BinOp op l r) = L.BinOp op <$> lowerExpr l
-                                         <*> lowerExpr r
-lowerExpr (_, _, Apply f arg) = L.Apply <$> lowerExpr f
-                                     <*> lowerExpr arg
-lowerExpr (_, _, Lambda (_, _, var) bodyExpr) =
+        do
+        value' <- lowerValue value
+        return (lowerType typ, L.Value value')
+lowerExpr (_, typ, BinOp op l r) =
+        do
+        l' <- lowerExpr l
+        r' <- lowerExpr r
+        return (lowerType typ, L.BinOp op l' r')
+lowerExpr (_, typ, Apply f arg) =
+        do
+        f' <- lowerExpr f
+        arg' <- lowerExpr arg
+        return (lowerType typ, L.Apply f' arg')
+lowerExpr (_, typ, Lambda (_, varType, var) body) =
         encapsulate ( do
                       aloc <- lowerAloc var
                       putVarAloc var aloc
-                      L.Lambda aloc <$> lowerExpr bodyExpr
+                      body' <- lowerExpr body
+                      return (lowerType typ, L.Lambda (lowerType varType, aloc) body')
                     )
-lowerExpr (_, _, Let (_, _, var) val body) =
+lowerExpr (_, typ, Let (_, varType, var) val body) =
         encapsulate ( do
                       aloc <- lowerAloc var
                       val' <- lowerExpr val
                       putVarAloc var aloc
-                      L.Let aloc val' <$> lowerExpr body
+                      body' <- lowerExpr body
+                      return (lowerType typ, L.Let (lowerType varType, aloc) val' body')
                     )
-lowerExpr (_, _, If p c a) = L.If <$> lowerExpr p
-                               <*> lowerExpr c
-                               <*> lowerExpr a
+lowerExpr (_, typ, If p c a) =
+        do
+        p' <- lowerExpr p
+        c' <- lowerExpr c
+        a' <- lowerExpr a
+        return (lowerType typ, L.If p' c' a')
 
 lowerValue :: TValue -> Env L.TValue
-lowerValue (_, _, Int i) = return (L.Int i)
-lowerValue (_, _, Bool b) = return (L.Bool b)
-lowerValue (_, _, VVar (_, _, var)) = L.Place <$> lowerVar var
+lowerValue (_, typ, Int i) = return (lowerType typ, L.Int i)
+lowerValue (_, typ, Bool b) = return (lowerType typ, L.Bool b)
+lowerValue (_, typ, VVar (_, _, var)) =
+        do
+        var' <- lowerVar var
+        return (lowerType typ, L.Place var')
 
 lowerLabel :: Var -> Env Label
 lowerLabel (Var template) = lift (genLabel template)
@@ -106,8 +128,8 @@ lowerType TBool = L.TBool
 lowerType (TFunc from to) = L.TFunc (lowerType from)
                                     (lowerType to)
 
-extractDefVar :: Def -> Var
-extractDefVar (Def (_, _, var) _ _) = var
+extractDefVar :: Def -> TVar
+extractDefVar (Def var _ _) = var
 
 putVarLabel :: Var -> Label -> Env ()
 putVarLabel var@(Var varName) label =

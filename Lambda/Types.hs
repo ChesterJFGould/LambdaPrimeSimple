@@ -17,10 +17,10 @@ type TExpr = Tagged Expr
 data Expr = Value TValue
           | BinOp BinOp TExpr TExpr
           | Apply TExpr TExpr
-          | Lambda Aloc TExpr
-          | Let Aloc TExpr TExpr
-          | LetGlobal Label TExpr TExpr
-          | LetGlobals [Label] [TExpr] TExpr
+          | Lambda TAloc TExpr
+          | Let TAloc TExpr TExpr
+          | LetGlobal TLabel TExpr TExpr
+          | LetGlobals [TLabel] [TExpr] TExpr
           | If TExpr TExpr TExpr
           deriving Show
 
@@ -30,3 +30,7 @@ data Value = Int Integer
            | Bool Bool
            | Place APlace
            deriving Show
+
+type TAloc = Tagged Aloc
+
+type TLabel = Tagged Label

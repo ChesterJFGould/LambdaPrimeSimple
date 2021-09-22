@@ -15,12 +15,13 @@ lowerExpr (_, Value value) = P.Value (lowerValue value)
 lowerExpr (_, BinOp (BNumOp op) l r) = P.NumOp op (lowerExpr l) (lowerExpr r)
 lowerExpr expr@(typ, BinOp (BRelOp _) _ _) = lowerExpr (typ, If expr (typ, Value (typ, Bool True)) (typ, Value (typ, Bool False)))
 lowerExpr (_, Apply f arg) = P.Apply (lowerExpr f) (lowerExpr arg)
-lowerExpr (_, Lambda aloc body) = P.Lambda aloc (lowerExpr body)
-lowerExpr (_, Let aloc val body) = P.Let aloc (lowerExpr val) (lowerExpr body)
-lowerExpr (_, LetGlobal label val body) = P.LetGlobal label (lowerExpr val) (lowerExpr body)
-lowerExpr (_, LetGlobals labels vals body) =
+lowerExpr (_, Lambda (_, aloc) body) = P.Lambda aloc (lowerExpr body)
+lowerExpr (_, Let (_, aloc) val body) = P.Let aloc (lowerExpr val) (lowerExpr body)
+lowerExpr (_, LetGlobal (_, label) val body) = P.LetGlobal label (lowerExpr val) (lowerExpr body)
+lowerExpr (_, LetGlobals tLabels vals body) =
         let vals' = map lowerExpr vals
             body' = lowerExpr body
+            labels = [ label | (_, label) <- tLabels ]
         in P.LetGlobals labels vals' body'
 lowerExpr (_, If p c a) = lowerIf p (lowerExpr c) (lowerExpr a)
 
