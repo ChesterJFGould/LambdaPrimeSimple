@@ -24,51 +24,55 @@ lower (Program expr) =
         return (C.Program defs (C.Body body))
 
 lowerExpr :: Expr -> Closures C.Expr
-lowerExpr (CallFunc f cont arg) =
+lowerExpr (CallFunc (_, f) (_, cont) (_, arg)) =
         do
         codePtrAloc <- lift (genAloc "funcCodePtr")
         let codePtrPlace = AAloc codePtrAloc
         return (C.Let codePtrAloc (C.TupleRef f 0)
                       (C.CallFunc codePtrPlace f cont arg))
-lowerExpr (CallCont cont arg) =
+lowerExpr (CallCont (_, cont) (_, arg)) =
         do
         codePtrAloc <- lift (genAloc "contCodePtr")
         let codePtrPlace = AAloc codePtrAloc
         return (C.Let codePtrAloc (C.TupleRef cont 0)
                       (C.CallCont codePtrPlace cont arg))
-lowerExpr (Let aloc val body) = C.Let aloc (lowerValue val) <$> lowerExpr body
-lowerExpr (LetCont aloc cont body) =
+lowerExpr (Let (_, aloc) val body) = C.Let aloc (lowerValue val) <$> lowerExpr body
+lowerExpr (LetCont (_, aloc) cont body) =
         do
         closureElements <- lowerCont cont
         C.Let aloc (C.Tuple closureElements) <$> lowerExpr body
-lowerExpr (LetFunc aloc func body) =
+lowerExpr (LetFunc (_, aloc) func body) =
         do
         closureElements <- lowerFunc func
         C.Let aloc (C.Tuple closureElements) <$> lowerExpr body
-lowerExpr (LetGlobalTuple label elements body) = C.LetGlobalTuple label elements <$> lowerExpr body
-lowerExpr (LetGlobalFunc label func body) =
+lowerExpr (LetGlobalTuple (_, label) tElements body) =
+        do
+        let elements = [ element | (_, element) <- tElements ]
+        C.LetGlobalTuple label elements <$> lowerExpr body
+lowerExpr (LetGlobalFunc (_, label) func body) =
         do
         closureElements <- lowerFunc func
         C.LetGlobalTuple label closureElements <$> lowerExpr body
-lowerExpr (LetGlobalFuncs labels funcs body) =
+lowerExpr (LetGlobalFuncs tLabels funcs body) =
         do
         closureElements <- mapM lowerFunc funcs
         body' <- lowerExpr body
+        let labels = [ label | (_, label) <- tLabels ]
         return (foldr (\(label, elements) expr -> C.LetGlobalTuple label elements expr)
                       body'
                       (zip labels closureElements))
-lowerExpr (If (RelOp op l r) c a) = C.If (C.RelOp op l r) <$> lowerExpr c
-                                                          <*> lowerExpr a
+lowerExpr (If (RelOp op (_, l) (_, r)) c a) = C.If (C.RelOp op l r) <$> lowerExpr c
+                                                                    <*> lowerExpr a
 
-lowerValue :: Value -> C.Value
-lowerValue (Int i) = C.Int i
-lowerValue (Bool b) = C.Bool b
-lowerValue (VLabel label) = C.VLabel label
-lowerValue (TupleRef tuple offset) = C.TupleRef tuple offset
-lowerValue (NumOp op l r) = C.NumOp op l r
+lowerValue :: TValue -> C.Value
+lowerValue (_, Int i) = C.Int i
+lowerValue (_, Bool b) = C.Bool b
+lowerValue (_, VLabel (_, label)) = C.VLabel label
+lowerValue (_, TupleRef (_, tuple) offset) = C.TupleRef tuple offset
+lowerValue (_, NumOp op (_, l) (_, r)) = C.NumOp op l r
 
 lowerFunc :: Func -> Closures [APlace]
-lowerFunc (Func cont arg body) =
+lowerFunc (Func (_, cont) (_, arg) body) =
         do
         body' <- lowerExpr body
         let bodyFree = freeVars body' [cont, arg]
@@ -87,7 +91,7 @@ lowerFunc (Func cont arg body) =
         return (funcPlace : bodyFreePlaces)
 
 lowerCont :: Cont -> Closures [APlace]
-lowerCont (Cont arg body) =
+lowerCont (Cont (_, arg) body) =
         do
         body' <- lowerExpr body
         let bodyFree = freeVars body' [arg]

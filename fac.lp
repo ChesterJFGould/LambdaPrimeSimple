@@ -1,6 +1,6 @@
 [ letrec
   [ fac : Int -> Int
-  | n = if n < 1
+  | n = if n == 0
         then 1
         else n * fac (n - 1)
   ]

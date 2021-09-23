@@ -14,8 +14,8 @@ start:
 	mov r9, 0 ; offset
 	syscall
 	mov rbp, rsp
-	sub rbp, 8288608; Why 8288608 and not 8388608? Because 8388608 segfaults and
-	                ; 8288608 doesn't, that's why.
+	sub rbp, 8370000; Why 8370000 and not 8388608? Because 8388608 segfaults and
+	                ; 8370000 doesn't, that's why.
 
 section .data
 main$2: dq 0
@@ -24,18 +24,19 @@ section .text
 mov RSP , RBP
 mov R10 , 0
 add RBP , R10
-mov QWORD [ fib$0 + 0 ] , func$35
-mov RCX , 25
-mov QWORD [ RBP + 0 ] , cont$38
+mov QWORD [ fib$0 + 0 ] , func$39
+mov RCX , fib$0
+mov RDX , 26
+mov QWORD [ RBP + 0 ] , cont$42
 mov RAX , RBP
 mov RBX , 8
 add RBP , RBX
-mov RBX , QWORD [ fib$0 + 0 ]
-mov RDI , fib$0
+mov RBX , QWORD [ RCX + 0 ]
+mov RDI , RCX
 mov RSI , RAX
-mov RDX , RCX
+mov RDX , RDX
 jmp RBX
-cont$27:
+cont$31:
 mov RSP , RBP
 mov R10 , 0
 add RBP , R10
@@ -49,75 +50,78 @@ mov RBX , QWORD [ RCX + 0 ]
 mov RDI , RCX
 mov RDX , RAX
 jmp RBX
-cont$32:
+cont$36:
 mov RSP , RBP
 mov R10 , 0
 add RBP , R10
 mov RBX , RDI
-mov RDX , RDX
-mov RSI , QWORD [ RBX + 8 ]
+mov RSI , RDX
+mov RDI , QWORD [ RBX + 8 ]
 mov RAX , QWORD [ RBX + 16 ]
+mov RDX , fib$0
 mov RBX , 2
 mov RCX , RAX
 sub RCX , RBX
-mov QWORD [ RBP + 0 ] , cont$27
-mov QWORD [ RBP + 8 ] , RSI
-mov QWORD [ RBP + 16 ] , RDX
+mov QWORD [ RBP + 0 ] , cont$31
+mov QWORD [ RBP + 8 ] , RDI
+mov QWORD [ RBP + 16 ] , RSI
 mov RAX , RBP
 mov RBX , 24
 add RBP , RBX
-mov RBX , QWORD [ fib$0 + 0 ]
-mov RDI , fib$0
+mov RBX , QWORD [ RDX + 0 ]
+mov RDI , RDX
 mov RSI , RAX
 mov RDX , RCX
 jmp RBX
-func$35:
+func$39:
 mov RSP , RBP
 mov R10 , 0
 add RBP , R10
 mov RAX , RDI
 mov RSI , RSI
 mov RAX , RDX
-mov RBX , 0
-cmp RAX , RBX
-je consequence$44
 mov RBX , 1
 cmp RAX , RBX
-je consequence$43
+je consequence$48
+mov RBX , 2
+cmp RAX , RBX
+je consequence$47
+mov RDX , fib$0
 mov RBX , 1
 mov RCX , RAX
 sub RCX , RBX
-mov QWORD [ RBP + 0 ] , cont$32
+mov QWORD [ RBP + 0 ] , cont$36
 mov QWORD [ RBP + 8 ] , RSI
 mov QWORD [ RBP + 16 ] , RAX
 mov RAX , RBP
 mov RBX , 24
 add RBP , RBX
-mov RBX , QWORD [ fib$0 + 0 ]
-mov RDI , fib$0
+mov RBX , QWORD [ RDX + 0 ]
+mov RDI , RDX
 mov RSI , RAX
 mov RDX , RCX
 jmp RBX
-consequence$43:
+consequence$47:
 mov RAX , 1
 mov RBX , QWORD [ RSI + 0 ]
 mov RDI , RSI
 mov RDX , RAX
 jmp RBX
-consequence$44:
+consequence$48:
 mov RAX , 0
 mov RBX , QWORD [ RSI + 0 ]
 mov RDI , RSI
 mov RDX , RAX
 jmp RBX
-cont$38:
+cont$42:
 mov RSP , RBP
 mov R10 , 0
 add RBP , R10
 mov RAX , RDI
 mov RAX , RDX
 mov QWORD [ main$2 + 0 ] , RAX
-mov RAX , QWORD [ main$2 + 0 ]
+mov RBX , main$2
+mov RAX , QWORD [ RBX + 0 ]
 mov RBX , QWORD [ halt + 0 ]
 mov RDI , halt
 mov RDX , RAX
@@ -182,12 +186,6 @@ section .data
 
 len: equ 20
 msg: times len dw 0
-trueLen: equ 5
-true: db 'true', 0
-falseLen: equ 6
-false: db 'false', 0
-emptyLen: equ 3
-empty: db '[]', 0
 nl: db 0x0a
 halt: dq done
 

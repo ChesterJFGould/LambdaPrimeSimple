@@ -9,12 +9,12 @@ data Type = TInt
 
 type Tagged val = (Type, val)
 
-data Program = Program Expr
+data Program = Program TExpr
              deriving Show
 
 type TExpr = Tagged Expr
 
-data Expr = Value Value
+data Expr = Value TValue
           | NumOp NumOp TExpr TExpr
           | Apply TExpr TExpr
           | Lambda TAloc TExpr
@@ -26,6 +26,8 @@ data Expr = Value Value
 
 data Pred = RelOp RelOp TExpr TExpr
           deriving Show
+
+type TValue = Tagged Value
 
 data Value = Int Integer
            | Bool Bool

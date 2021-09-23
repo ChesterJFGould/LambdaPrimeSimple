@@ -12,54 +12,77 @@ import Globals.Types
 import Control.Monad.State
 import qualified Data.Map as M
 
-type Env a = StateT (M.Map Aloc Aloc) (Gensym) a
+type Env a = StateT (M.Map Aloc C.TAloc) (Gensym) a
+
+halt :: C.TAPlace
+halt = (C.TCont C.TInt, ALabel HaltLabel)
 
 evalEnv :: Env a -> Gensym a
 evalEnv computation = evalStateT computation M.empty
 
 lower :: Program -> Gensym C.Program
-lower (Program expr) = evalEnv (C.Program <$> lowerTail expr (ALabel HaltLabel))
+lower (Program expr) = evalEnv (C.Program <$> lowerTail expr halt)
 
-lowerTail :: Expr -> APlace -> Env C.Expr
-lowerTail (Value value) k = lowerValue value (\vAloc -> return (C.CallCont k (AAloc vAloc)))
-lowerTail expr@(NumOp _ _ _) k = lowerExpr expr (\resultAloc -> return (C.CallCont k (AAloc resultAloc)))
-lowerTail (Apply f arg) k =
-        lowerExprs [f, arg] \[fAloc, argAloc] ->
+lowerTail :: TExpr -> C.TAPlace -> Env C.Expr
+lowerTail (_, Value value) k = lowerValue value (\(vAlocType, vAloc) -> return (C.CallCont k (vAlocType, (AAloc vAloc))))
+lowerTail expr@(_, NumOp _ _ _) k =
+        lowerExpr expr \(resultAlocType, resultAloc) ->
+        return (C.CallCont k (resultAlocType, (AAloc resultAloc)))
+lowerTail (_, Apply f arg) k =
+        lowerExprs [f, arg] \[(fAlocType, fAloc), (argAlocType, argAloc)] ->
         do
-        let fPlace = AAloc fAloc
-            argPlace = AAloc argAloc
+        let fPlace = (fAlocType, AAloc fAloc)
+            argPlace = (argAlocType, AAloc argAloc)
         return (C.CallFunc fPlace k argPlace)
-lowerTail expr@(TupleRef _ _) k = lowerExpr expr (\refAloc -> return (C.CallCont k (AAloc refAloc)))
-lowerTail (Let aloc val body) k =
-        lowerExpr val \valAloc ->
+lowerTail expr@(_, TupleRef _ _) k =
+        lowerExpr expr \(refAlocType, refAloc) ->
+        return (C.CallCont k (refAlocType, (AAloc refAloc)))
+lowerTail (_, Let (_, aloc) val body) k =
+        lowerExpr val \(valAlocType, valAloc) ->
         do
         putAloc aloc valAloc
         lowerTail body k
-lowerTail (LetFunc aloc func body) k = C.LetFunc aloc <$> lowerFunc func
-                                                      <*> lowerTail body k
-lowerTail (LetGlobalTuple label elements body) k =
+lowerTail (_, LetFunc (alocType, aloc) func body) k =
+        do
+        func' <- lowerFunc func
+        body' <- lowerTail body k
+        let alocType' = lowerType alocType
+        return (C.LetFunc (alocType', aloc) func' body')
+lowerTail (_, LetGlobalTuple (labelType, label) elements body) k =
         do
         body' <- lowerTail body k
-        lowerExprs elements (\elementAlocs -> return (C.LetGlobalTuple label (map AAloc elementAlocs) body'))
-lowerTail (LetGlobalFunc label func body) k = C.LetGlobalFunc label <$> lowerFunc func
-                                                                    <*> lowerTail body k
-lowerTail (LetGlobalFuncs labels funcs body) k = C.LetGlobalFuncs labels <$> mapM lowerFunc funcs
-                                                                         <*> lowerTail body k
-lowerTail (If (RelOp op l r) c a) k =
+        let labelType' = lowerType labelType
+        lowerExprs elements \elementAlocs ->
+         do
+         let elementPlaces = [ (typ, AAloc element) | (typ, element) <- elementAlocs ]
+         return (C.LetGlobalTuple (labelType', label) elementPlaces body')
+lowerTail (_, LetGlobalFunc (labelType, label) func body) k =
+        do
+        func' <- lowerFunc func
+        body' <- lowerTail body k
+        let labelType' = lowerType labelType
+        return (C.LetGlobalFunc (labelType', label) func' body')
+lowerTail (_, LetGlobalFuncs tLabels funcs body) k =
+        do
+        let tLabels' = [ (lowerType typ, label) | (typ, label) <- tLabels ]
+        C.LetGlobalFuncs tLabels' <$> mapM lowerFunc funcs
+                                  <*> lowerTail body k
+lowerTail (_, If (RelOp op l r) c a) k =
         do
         c' <- lowerTail c k
         a' <- lowerTail a k
         lowerExprs [l, r] (\[lAloc, rAloc] -> return (C.If (C.RelOp op lAloc rAloc) c' a'))
 
-lowerExpr :: Expr -> (Aloc -> Env C.Expr) -> Env C.Expr
-lowerExpr (Value value) k = lowerValue value k
-lowerExpr (NumOp op l r) k =
+lowerExpr :: TExpr -> (C.TAloc -> Env C.Expr) -> Env C.Expr
+lowerExpr (_, Value value) k = lowerValue value k
+lowerExpr (typ, NumOp op l r) k =
         lowerExprs [l, r] \[lAloc, rAloc] ->
         do
         resultAloc <- lift (genAloc "numResult")
-        C.Let resultAloc (C.NumOp op lAloc rAloc) <$> k resultAloc
-lowerExpr (Apply f arg) k =
-        lowerExprs [f, arg] \[fAloc, argAloc] ->
+        let typ' = lowerType typ
+        C.Let (typ', resultAloc) (typ', C.NumOp op lAloc rAloc) <$> k (typ', resultAloc)
+lowerExpr (_, Apply f arg) k =
+        lowerExprs [f, arg] \[(fAlocType, fAloc), (argAlocType, argAloc)] ->
         do
         contAloc <- lift (genAloc "retCont")
         resultAloc <- lift (genAloc "funcResult")
@@ -68,29 +91,32 @@ lowerExpr (Apply f arg) k =
             argPlace = AAloc argAloc
         contBody <- k resultAloc
         return (C.LetCont contAloc (C.Cont resultAloc contBody) (C.CallFunc fPlace contPlace argPlace))
-lowerExpr (TupleRef tuple offset) k =
+lowerExpr (_, TupleRef tuple offset) k =
         lowerExpr tuple \tupleAloc ->
         do
         resultAloc <- lift (genAloc "tupleRefResult")
         let tuplePlace = AAloc tupleAloc
         C.Let resultAloc (C.TupleRef tuplePlace offset) <$> k resultAloc
-lowerExpr (Let aloc val body) k =
+lowerExpr (_, Let (_, aloc) val body) k =
         lowerExpr val \valAloc ->
         do
         putAloc aloc valAloc
         lowerExpr body k
-lowerExpr (LetFunc aloc func body) k = C.LetFunc aloc <$> lowerFunc func
-                                                      <*> lowerExpr body k
-lowerExpr (LetGlobalTuple label elements body) k =
+lowerExpr (_, LetFunc (_, aloc) func body) k = C.LetFunc aloc <$> lowerFunc func
+                                                              <*> lowerExpr body k
+lowerExpr (_, LetGlobalTuple (_, label) elements body) k =
         lowerExprs elements \elementAlocs ->
         do
         let elementPlaces = map AAloc elementAlocs
         C.LetGlobalTuple label elementPlaces <$> lowerExpr body k
-lowerExpr (LetGlobalFunc label func body) k = C.LetGlobalFunc label <$> lowerFunc func
-                                                                    <*> lowerExpr body k
-lowerExpr (LetGlobalFuncs labels funcs body) k = C.LetGlobalFuncs labels <$> mapM lowerFunc funcs
-                                                                         <*> lowerExpr body k
-lowerExpr (If (RelOp op l r) c a) k =
+lowerExpr (_, LetGlobalFunc (_, label) func body) k = C.LetGlobalFunc label <$> lowerFunc func
+                                                                            <*> lowerExpr body k
+lowerExpr (_, LetGlobalFuncs tLabels funcs body) k =
+        do
+        let labels = [ label | (_, label) <- tLabels ]
+        C.LetGlobalFuncs labels <$> mapM lowerFunc funcs
+                                <*> lowerExpr body k
+lowerExpr (_, If (RelOp op l r) c a) k =
         lowerExprs [l, r] \[lAloc, rAloc] ->
         do
         joinAloc <- lift (genAloc "joinCont")
@@ -102,33 +128,33 @@ lowerExpr (If (RelOp op l r) c a) k =
         return (C.LetCont joinAloc (C.Cont resultAloc joinBody)
                           (C.If (C.RelOp op lAloc rAloc) c' a'))
 
-lowerExprs :: [Expr] -> ([Aloc] -> Env C.Expr) -> Env C.Expr
+lowerExprs :: [TExpr] -> ([C.TAloc] -> Env C.Expr) -> Env C.Expr
 lowerExprs = lowerExprs' []
 
-lowerExprs' :: [Aloc] -> [Expr] -> ([Aloc] -> Env C.Expr) -> Env C.Expr
+lowerExprs' :: [C.TAloc] -> [TExpr] -> ([C.TAloc] -> Env C.Expr) -> Env C.Expr
 lowerExprs' acc [] k = k (reverse acc)
 lowerExprs' acc (expr : rest) k = lowerExpr expr (\exprPlace -> lowerExprs' (exprPlace : acc) rest k)
 
-lowerValue :: Value -> (Aloc -> Env C.Expr) -> Env C.Expr
-lowerValue (Int i) k =
+lowerValue :: TValue -> (C.TAloc -> Env C.Expr) -> Env C.Expr
+lowerValue (_, Int i) k =
         do
         tmpAloc <- lift (genAloc "int")
         C.Let tmpAloc (C.Int i) <$> (k tmpAloc)
-lowerValue (Bool b) k =
+lowerValue (_, Bool b) k =
         do
         tmpAloc <- lift (genAloc "bool")
         C.Let tmpAloc (C.Bool b) <$> (k tmpAloc)
-lowerValue (Place (AAloc aloc)) k =
+lowerValue (_, Place (AAloc aloc)) k =
         do
         aloc' <- lowerAloc aloc
         k aloc'
-lowerValue (Place (ALabel label)) k =
+lowerValue (_, Place (ALabel label)) k =
         do
         tmpAloc <- lift (genAloc "label")
         C.Let tmpAloc (C.VLabel label) <$> k tmpAloc
 
 lowerFunc :: Func -> Env C.Func
-lowerFunc (Func arg body) =
+lowerFunc (Func (_, arg) body) =
         do
         contAloc <- lift (genAloc "fCont")
         let contPlace = AAloc contAloc
@@ -146,6 +172,12 @@ lowerAloc aloc =
 lowerPlace :: APlace -> Env APlace
 lowerPlace (AAloc aloc) = AAloc <$> lowerAloc aloc
 lowerPlace p@(ALabel _) = return p
+
+lowerType :: Type -> C.Type
+lowerType TInt = C.TInt
+lowerType TBool = C.TBool
+lowerType (TFunc from to) = C.TFunc (C.TCont (lowerType to)) (lowerType from)
+lowerType (TTuple elements) = C.TTuple (map lowerType elements)
 
 putAloc :: Aloc -> Aloc -> Env ()
 putAloc aloc aloc' =
