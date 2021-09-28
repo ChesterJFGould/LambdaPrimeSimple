@@ -17,7 +17,7 @@ prettyPrintExpr (CallFunc f cont arg) =
 prettyPrintExpr (CallCont cont arg) =
         [unwords [prettyPrintTPlace cont, prettyPrintTPlace arg]]
 prettyPrintExpr (Let aloc val body) =
-        unwords ["let", prettyPrintTLoc aloc, "=", prettyPrintTValue val]
+        unwords ["let", prettyPrintTLoc aloc, "=", prettyPrintValue val]
         : prettyPrintExpr body
 prettyPrintExpr (LetCont aloc cont body) =
         concat [ [unwords ["letcont", prettyPrintTLoc aloc, "="]]
@@ -64,7 +64,7 @@ prettyPrintRelOp Gte = ">="
 prettyPrintRelOp Neq = "/="
 
 prettyPrintElements :: [TAPlace] -> String
-prettyPrintElements elements = "(" ++ intercalate ", " (map prettyPrintTPlace elements) ++ ")"
+prettyPrintElements elements = "{" ++ intercalate ", " (map prettyPrintTPlace elements) ++ "}"
 
 prettyPrintCont :: Cont -> [String]
 prettyPrintCont (Cont arg body) =
@@ -96,9 +96,6 @@ prettyPrintLabel :: Label -> String
 prettyPrintLabel (Label template n) = template ++ "$" ++ show n
 prettyPrintLabel HaltLabel = "halt"
 
-prettyPrintTValue :: TValue -> String
-prettyPrintTValue (typ, value) = prettyPrintTagged typ (prettyPrintValue value)
-
 prettyPrintValue :: Value -> String
 prettyPrintValue (Int i) = show i
 prettyPrintValue (Bool True) = "true"
@@ -113,7 +110,7 @@ prettyPrintNumOp Sub = "-"
 prettyPrintNumOp Mul = "*"
 
 prettyPrintTagged :: Type -> String -> String
-prettyPrintTagged typ s = unwords [s, ":", prettyPrintType typ]
+prettyPrintTagged typ s = parens (unwords [s, ":", prettyPrintType typ])
 
 prettyPrintType :: Type -> String
 prettyPrintType (TFunc cont arg) = unwords [prettyPrintType' cont, prettyPrintType' arg, "->", "⊥"]
@@ -125,7 +122,7 @@ prettyPrintType' TInt = "Int"
 prettyPrintType' TBool = "Bool"
 prettyPrintType' (TFunc cont arg) = parens (unwords [prettyPrintType' cont, prettyPrintType' arg, "->", "⊥"])
 prettyPrintType' (TCont arg) = parens (unwords [prettyPrintType' arg, "->", "⊥"])
-prettyPrintType' (TTuple elements) = parens (intercalate "," (map prettyPrintType' elements))
+prettyPrintType' (TTuple elements) = "{" ++ (intercalate "," (map prettyPrintType' elements)) ++ "}"
 
 indent :: [String] -> [String]
 indent lines = map ("    " ++) lines

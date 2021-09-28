@@ -16,7 +16,7 @@ data Program = Program Expr
 
 data Expr = CallFunc TAPlace TAPlace TAPlace
           | CallCont TAPlace TAPlace
-          | Let TAloc TValue Expr
+          | Let TAloc Value Expr
           | LetCont TAloc Cont Expr
           | LetFunc TAloc Func Expr
           | LetGlobalTuple TLabel [TAPlace] Expr
@@ -33,8 +33,6 @@ data Cont = Cont TAloc Expr
 
 data Pred = RelOp RelOp TAloc TAloc
           deriving Show
-
-type TValue = Tagged Value
 
 data Value = Int Integer
            | Bool Bool

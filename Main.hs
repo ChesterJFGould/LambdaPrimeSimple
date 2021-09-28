@@ -56,6 +56,6 @@ handleError msg =
 
 main :: IO ()
 main = do
-       getContents >>= either handleError prettyPrintCPS
+       getContents >>= either handleError compile
                        . (>>= AST.check)
                        . AST.parse "stdin"
