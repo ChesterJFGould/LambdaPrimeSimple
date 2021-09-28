@@ -64,12 +64,12 @@ lowerExpr (LetGlobalFuncs tLabels funcs body) =
 lowerExpr (If (RelOp op (_, l) (_, r)) c a) = C.If (C.RelOp op l r) <$> lowerExpr c
                                                                     <*> lowerExpr a
 
-lowerValue :: TValue -> C.Value
-lowerValue (_, Int i) = C.Int i
-lowerValue (_, Bool b) = C.Bool b
-lowerValue (_, VLabel (_, label)) = C.VLabel label
-lowerValue (_, TupleRef (_, tuple) offset) = C.TupleRef tuple offset
-lowerValue (_, NumOp op (_, l) (_, r)) = C.NumOp op l r
+lowerValue :: Value -> C.Value
+lowerValue (Int i) = C.Int i
+lowerValue (Bool b) = C.Bool b
+lowerValue (VLabel (_, label)) = C.VLabel label
+lowerValue (TupleRef (_, tuple) offset) = C.TupleRef tuple offset
+lowerValue (NumOp op (_, l) (_, r)) = C.NumOp op l r
 
 lowerFunc :: Func -> Closures [APlace]
 lowerFunc (Func (_, cont) (_, arg) body) =

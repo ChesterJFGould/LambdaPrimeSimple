@@ -17,7 +17,7 @@ prettyPrintExpr (CallFunc f cont arg) =
 prettyPrintExpr (CallCont cont arg) =
         [unwords [prettyPrintTPlace cont, prettyPrintTPlace arg]]
 prettyPrintExpr (Let aloc val body) =
-        unwords ["let", prettyPrintTLoc aloc, "=", prettyPrintTValue val]
+        unwords ["let", prettyPrintTLoc aloc, "=", prettyPrintValue val]
         : prettyPrintExpr body
 prettyPrintExpr (LetCont aloc cont body) =
         concat [ [unwords ["letcont", prettyPrintTLoc aloc, "="]]
@@ -95,9 +95,6 @@ prettyPrintTLabel (typ, label) = prettyPrintTagged typ (prettyPrintLabel label)
 prettyPrintLabel :: Label -> String
 prettyPrintLabel (Label template n) = template ++ "$" ++ show n
 prettyPrintLabel HaltLabel = "halt"
-
-prettyPrintTValue :: TValue -> String
-prettyPrintTValue (typ, value) = prettyPrintTagged typ (prettyPrintValue value)
 
 prettyPrintValue :: Value -> String
 prettyPrintValue (Int i) = show i
