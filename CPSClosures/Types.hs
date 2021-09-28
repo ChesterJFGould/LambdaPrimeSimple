@@ -2,30 +2,46 @@ module CPSClosures.Types where
 
 import Compiler.Types
 
+data Type = TInt
+          | TBool
+          | TFunc Type Type
+          | TCont Type
+          | TTuple [Type]
+          | TClosure Type
+          deriving Show
+
+type Tagged val = (Type, val)
+
 data Program = Program [Def] Body
              deriving Show
 
-data Def = Func Label Aloc Aloc Aloc Body -- Env, Cont, Arg
-         | Cont Label Aloc Aloc Body -- Env, Arg
+data Def = Func TLabel TAloc TAloc TAloc Body -- Env, Cont, Arg
+         | Cont TLabel TAloc TAloc Body -- Env, Arg
          deriving Show
 
 data Body = Body Expr
           deriving Show
 
-data Expr = CallFunc APlace APlace APlace APlace -- Func, Env, Cont, Arg
-          | CallCont APlace APlace APlace -- Cont, Env, Arg
-          | Let Aloc Value Expr
-          | LetGlobalTuple Label [APlace] Expr
+data Expr = CallFunc TAPlace TAPlace TAPlace TAPlace -- Func, Env, Cont, Arg
+          | CallCont TAPlace TAPlace TAPlace -- Cont, Env, Arg
+          | Let TAloc Value Expr
+          | LetGlobalTuple TLabel [TAPlace] Expr
           | If Pred Expr Expr
           deriving Show
 
-data Pred = RelOp RelOp Aloc Aloc
+data Pred = RelOp RelOp TAloc TAloc
           deriving Show
 
 data Value = Int Integer
            | Bool Bool
-           | VLabel Label
-           | Tuple [APlace]
-           | TupleRef APlace Int
-           | NumOp NumOp Aloc Aloc
+           | VLabel TLabel
+           | Tuple [TAPlace]
+           | TupleRef TAPlace Int
+           | NumOp NumOp TAloc TAloc
            deriving Show
+
+type TAloc = Tagged Aloc
+
+type TLabel = Tagged Label
+
+type TAPlace = Tagged APlace

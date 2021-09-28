@@ -32,68 +32,110 @@ lowerDefs = mapM lowerDef
 lowerDef :: Def -> Tuples A.Block
 lowerDef (Func label env cont arg (Body expr)) =
         do
-        expr' <- setExprs [ (MAloc env, regToMTriv L.envRegister)
-                          , (MAloc cont, regToMTriv L.contRegister)
-                          , (MAloc arg, regToMTriv L.argRegister)
+        let label' = eraseType label
+            env' = eraseType env
+            cont' = eraseType cont
+            arg' = eraseType arg
+        expr' <- setExprs [ (MAloc env', regToMTriv L.envRegister)
+                          , (MAloc cont', regToMTriv L.contRegister)
+                          , (MAloc arg', regToMTriv L.argRegister)
                           ] <$> lowerExpr expr
         let body = A.Body [ L.envRegister, L.contRegister, L.argRegister, L.heapRegister] expr'
-        return (A.Block label body)
+        return (A.Block label' body)
 lowerDef (Cont label env arg (Body expr)) =
         do
-        expr' <- setExprs [ (MAloc env, regToMTriv L.envRegister)
-                          , (MAloc arg, regToMTriv L.argRegister)
+        let label' = eraseType label
+            env' = eraseType env
+            arg' = eraseType arg
+        expr' <- setExprs [ (MAloc env', regToMTriv L.envRegister)
+                          , (MAloc arg', regToMTriv L.argRegister)
                           ] <$> lowerExpr expr
         let body = A.Body [ L.envRegister, L.argRegister] expr'
-        return (A.Block label body)
+        return (A.Block label' body)
 
 lowerExpr :: Expr -> Tuples A.Expr
 lowerExpr (CallFunc func env cont arg) =
-        return ( setExprs [ (regToMloc L.envRegister, aPlaceToMTriv env)
-                          , (regToMloc L.contRegister, aPlaceToMTriv cont)
-                          , (regToMloc L.argRegister, aPlaceToMTriv arg)
-                          ] (A.Jump (aPlaceToMPlace func)
+        do
+        let func' = eraseType func
+            env' = eraseType env
+            cont' = eraseType cont
+            arg' = eraseType arg
+        return ( setExprs [ (regToMloc L.envRegister, aPlaceToMTriv env')
+                          , (regToMloc L.contRegister, aPlaceToMTriv cont')
+                          , (regToMloc L.argRegister, aPlaceToMTriv arg')
+                          ] (A.Jump (aPlaceToMPlace func')
                                     [L.envRegister, L.contRegister, L.argRegister, L.heapRegister])
                )
 lowerExpr (CallCont func env arg) =
-        return ( setExprs [ (regToMloc L.envRegister, aPlaceToMTriv env)
-                          , (regToMloc L.argRegister, aPlaceToMTriv arg)
-                          ] (A.Jump (aPlaceToMPlace func)
+        do
+        let func' = eraseType func
+            env' = eraseType env
+            arg' = eraseType arg
+        return ( setExprs [ (regToMloc L.envRegister, aPlaceToMTriv env')
+                          , (regToMloc L.argRegister, aPlaceToMTriv arg')
+                          ] (A.Jump (aPlaceToMPlace func')
                                     [L.envRegister, L.argRegister, L.heapRegister])
                )
-lowerExpr (Let aloc (Int i) body) = A.Set (MAloc aloc) (MWord (fromIntegral i))
-                                          <$> lowerExpr body
-lowerExpr (Let aloc (Bool True) body) = A.Set (MAloc aloc) (MWord 1)
-                                              <$> lowerExpr body
-lowerExpr (Let aloc (Bool False) body) = A.Set (MAloc aloc) (MWord 0)
-                                               <$> lowerExpr body
-lowerExpr (Let aloc (VLabel label) body) = A.Set (MAloc aloc) (MPlace (MLabel label))
-                                                 <$> lowerExpr body
+lowerExpr (Let aloc (Int i) body) =
+        do
+        let aloc' = eraseType aloc
+        A.Set (MAloc aloc') (MWord (fromIntegral i))
+              <$> lowerExpr body
+lowerExpr (Let aloc (Bool True) body) =
+        do
+        let aloc' = eraseType aloc
+        A.Set (MAloc aloc') (MWord 1)
+              <$> lowerExpr body
+lowerExpr (Let aloc (Bool False) body) =
+        do
+        let aloc' = eraseType aloc
+        A.Set (MAloc aloc') (MWord 0)
+              <$> lowerExpr body
+lowerExpr (Let aloc (VLabel label) body) =
+        do
+        let aloc' = eraseType aloc
+            label' = eraseType label
+        A.Set (MAloc aloc') (MPlace (MLabel label'))
+              <$> lowerExpr body
 lowerExpr (Let aloc (Tuple elements) body) = -- TODO: This can be made nicer
         do
+        let aloc' = eraseType aloc
         body' <- lowerExpr body
         offsetMloc <- MAloc <$> lift (genAloc "offset")
-        let tupleBody = A.Set (MAloc aloc) (regToMTriv L.heapRegister)
+        let tupleBody = A.Set (MAloc aloc') (regToMTriv L.heapRegister)
                               (A.Set offsetMloc (MWord (fromIntegral ((length elements) * 8)))
                                      (A.NumOp Add (regToMloc L.heapRegister) offsetMloc
                                               body'))
-        return (initializeElements (MMloc (MReg L.heapRegister)) (zip elements [0..]) tupleBody)
+            elements' = map eraseType elements
+        return (initializeElements (MMloc (MReg L.heapRegister)) (zip elements' [0..]) tupleBody)
 lowerExpr (Let aloc (TupleRef place offset) body) =
-        A.MRef (MAloc aloc) (aPlaceToMPlace place) (offset * 8)
+        do
+        let aloc' = eraseType aloc
+            place' = eraseType place
+        A.MRef (MAloc aloc') (aPlaceToMPlace place') (offset * 8)
                <$> lowerExpr body
 lowerExpr (Let aloc (NumOp op l r) body) =
         do
         body' <- lowerExpr body
-        return ( A.Set (MAloc aloc) (alocToMTriv l)
-                       (A.NumOp op (MAloc aloc) (MAloc r) body')
+        let aloc' = eraseType aloc
+            l' = eraseType l
+            r' = eraseType r
+        return ( A.Set (MAloc aloc') (alocToMTriv l')
+                       (A.NumOp op (MAloc aloc') (MAloc r') body')
                )
 lowerExpr (LetGlobalTuple label elements body) =
         do
-        let elements' = replicate (length elements) (TWord 0)
-        tell [ GlobalTuple label elements' ]
-        initializeElements (MLabel label) (zip elements [0..])
+        let initialValues = replicate (length elements) (TWord 0)
+            label' = eraseType label
+        tell [ GlobalTuple label' initialValues ]
+        let elements' = map eraseType elements
+        initializeElements (MLabel label') (zip elements' [0..])
                            <$> lowerExpr body
 lowerExpr (If (RelOp op l r) c a) =
-        A.If (A.RelOp op (MAloc l) (MAloc r))
+        do
+        let l' = eraseType l
+            r' = eraseType r
+        A.If (A.RelOp op (MAloc l') (MAloc r'))
              <$> lowerExpr c
              <*> lowerExpr a
 
@@ -128,3 +170,6 @@ aPlaceToMTriv = MPlace . aPlaceToMPlace
 aPlaceToMPlace :: APlace -> MPlace
 aPlaceToMPlace (AAloc aloc) = MMloc (MAloc aloc)
 aPlaceToMPlace (ALabel label) = MLabel label
+
+eraseType :: Tagged a -> a
+eraseType (_, a) = a

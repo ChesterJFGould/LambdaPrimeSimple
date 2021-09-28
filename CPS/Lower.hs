@@ -109,6 +109,13 @@ lowerCont (Cont (_, arg) body) =
             bodyFreePlaces = map AAloc bodyFree
         return (contPlace : bodyFreePlaces)
 
+lowerType :: Type -> C.Type
+lowerType TInt = C.TInt
+lowerType TBool = C.TBool
+lowerType (TFunc cont arg) = C.Closure (C.TFunc (lowerType cont) (lowerType arg))
+lowerType (TCont arg) = C.Closure (C.TCont (lowerType arg))
+lowerType (TTuple elements) = C.TTuple (map lowerType elements)
+
 freeVars :: C.Expr -> [Aloc] -> [Aloc]
 freeVars expr bound =
         let freeInExpr = freeVarsExpr expr
