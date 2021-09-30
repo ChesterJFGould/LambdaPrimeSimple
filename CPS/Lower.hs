@@ -24,90 +24,152 @@ lower (Program expr) =
         return (C.Program defs (C.Body body))
 
 lowerExpr :: Expr -> Closures C.Expr
-lowerExpr (CallFunc (_, f) (_, cont) (_, arg)) =
+lowerExpr (CallFunc (fType, f) (contType, cont) (argType, arg)) =
         do
+        let fType' = lowerType fType
+            tF = (fType', f)
+            contType' = lowerType contType
+            tCont = (contType', cont)
+            argType' = lowerType argType
+            tArg = (argType', arg)
         codePtrAloc <- lift (genAloc "funcCodePtr")
-        let codePtrPlace = AAloc codePtrAloc
-        return (C.Let codePtrAloc (C.TupleRef f 0)
-                      (C.CallFunc codePtrPlace f cont arg))
-lowerExpr (CallCont (_, cont) (_, arg)) =
+        let codePtrType = case fType' of
+                               C.TClosure typ -> typ
+                               _ -> error "called a non-func"
+            codePtrTAloc = (codePtrType, codePtrAloc)
+            codePtrPlace = AAloc codePtrAloc
+            codePtrTPlace = (codePtrType, codePtrPlace)
+        return (C.Let codePtrTAloc (C.TupleRef tF 0)
+                      (C.CallFunc codePtrTPlace tF tCont tArg))
+lowerExpr (CallCont (contType, cont) (argType, arg)) =
         do
+        let contType' = lowerType contType
+            tCont = (contType', cont)
+            argType' = lowerType argType
+            tArg = (argType', arg)
         codePtrAloc <- lift (genAloc "contCodePtr")
-        let codePtrPlace = AAloc codePtrAloc
-        return (C.Let codePtrAloc (C.TupleRef cont 0)
-                      (C.CallCont codePtrPlace cont arg))
-lowerExpr (Let (_, aloc) val body) = C.Let aloc (lowerValue val) <$> lowerExpr body
-lowerExpr (LetCont (_, aloc) cont body) =
+        let codePtrType = case contType' of
+                               C.TClosure typ -> typ
+                               _ -> error "called a non-cont"
+            codePtrTAloc = (codePtrType, codePtrAloc)
+            codePtrPlace = AAloc codePtrAloc
+            codePtrTPlace = (codePtrType, codePtrPlace)
+        return (C.Let codePtrTAloc (C.TupleRef tCont 0)
+                      (C.CallCont codePtrTPlace tCont tArg))
+lowerExpr (Let (alocType, aloc) val body) =
         do
+        let alocType' = lowerType alocType
+            tAloc = (alocType', aloc)
+        C.Let tAloc (lowerValue val) <$> lowerExpr body
+lowerExpr (LetCont (alocType, aloc) cont body) =
+        do
+        let alocType' = lowerType alocType
+            tAloc = (alocType', aloc)
         closureElements <- lowerCont cont
-        C.Let aloc (C.Tuple closureElements) <$> lowerExpr body
-lowerExpr (LetFunc (_, aloc) func body) =
+        C.Let tAloc (C.Tuple closureElements) <$> lowerExpr body
+lowerExpr (LetFunc (alocType, aloc) func body) =
         do
+        let alocType' = lowerType alocType
+            tAloc = (alocType', aloc)
         closureElements <- lowerFunc func
-        C.Let aloc (C.Tuple closureElements) <$> lowerExpr body
-lowerExpr (LetGlobalTuple (_, label) tElements body) =
+        C.Let tAloc (C.Tuple closureElements) <$> lowerExpr body
+lowerExpr (LetGlobalTuple (labelType, label) tElements body) =
         do
-        let elements = [ element | (_, element) <- tElements ]
-        C.LetGlobalTuple label elements <$> lowerExpr body
-lowerExpr (LetGlobalFunc (_, label) func body) =
+        let tElements' = [ (lowerType typ, element) | (typ, element) <- tElements ]
+            labelType' = lowerType labelType
+            tLabel = (labelType', label)
+        C.LetGlobalTuple tLabel tElements' <$> lowerExpr body
+lowerExpr (LetGlobalFunc (labelType, label) func body) =
         do
+        let labelType' = lowerType labelType
+            tLabel = (labelType', label)
         closureElements <- lowerFunc func
-        C.LetGlobalTuple label closureElements <$> lowerExpr body
+        C.LetGlobalTuple tLabel closureElements <$> lowerExpr body
 lowerExpr (LetGlobalFuncs tLabels funcs body) =
         do
         closureElements <- mapM lowerFunc funcs
         body' <- lowerExpr body
-        let labels = [ label | (_, label) <- tLabels ]
+        let labels = [ (lowerType typ, label) | (typ, label) <- tLabels ]
         return (foldr (\(label, elements) expr -> C.LetGlobalTuple label elements expr)
                       body'
                       (zip labels closureElements))
-lowerExpr (If (RelOp op (_, l) (_, r)) c a) = C.If (C.RelOp op l r) <$> lowerExpr c
+lowerExpr (If (RelOp op (lType, l) (rType, r)) c a) =
+        do
+        let lType' = lowerType lType
+            tL = (lType', l)
+            rType' = lowerType rType
+            tR = (rType', r)
+        C.If (C.RelOp op tL tR) <$> lowerExpr c
                                                                     <*> lowerExpr a
 
 lowerValue :: Value -> C.Value
 lowerValue (Int i) = C.Int i
 lowerValue (Bool b) = C.Bool b
-lowerValue (VLabel (_, label)) = C.VLabel label
-lowerValue (TupleRef (_, tuple) offset) = C.TupleRef tuple offset
-lowerValue (NumOp op (_, l) (_, r)) = C.NumOp op l r
+lowerValue (VLabel (labelType, label)) = C.VLabel (lowerType labelType, label)
+lowerValue (TupleRef (tupleType, tuple) offset) = C.TupleRef (lowerType tupleType, tuple) offset
+lowerValue (NumOp op (lType, l) (rType, r)) = C.NumOp op (lowerType lType, l) (lowerType rType, r)
 
-lowerFunc :: Func -> Closures [APlace]
-lowerFunc (Func (_, cont) (_, arg) body) =
+lowerFunc :: Func -> Closures [C.TAPlace]
+lowerFunc (Func (contType, cont) (argType, arg) body) =
         do
         body' <- lowerExpr body
-        let bodyFree = freeVars body' [cont, arg]
+        let contType' = lowerType contType
+            tCont = (contType', cont)
+            argType' = lowerType argType
+            tArg = (argType', arg)
+            bodyFreeTyped = freeVars body' [tCont, tArg]
+            (bodyFreeTypes, bodyFree) = unzip bodyFreeTyped
         newFreeAlocs <- mapM regenAloc bodyFree
         let body'' = replace (zip bodyFree newFreeAlocs) body'
-            enumeratedNewFreeAlocs = zip [1..] newFreeAlocs
+            newFreeTAlocs = zip bodyFreeTypes newFreeAlocs
+            enumeratedNewFreeTAlocs = zip [1..] newFreeTAlocs
         envAloc <- lift (genAloc "env")
-        let envPlace = AAloc envAloc
-            body''' = foldr (\(i, freeVar) expr -> C.Let freeVar (C.TupleRef envPlace i) expr)
+        let funcType = C.TFunc contType' argType'
+            envType = C.TTuple (funcType : bodyFreeTypes)
+            envPlace = AAloc envAloc
+            envTPlace = (envType, envPlace)
+            body''' = foldr (\(i, freeVar) expr -> C.Let freeVar (C.TupleRef envTPlace i) expr)
                             body''
-                            enumeratedNewFreeAlocs
+                            enumeratedNewFreeTAlocs
         funcLabel <- lift (genLabel "func")
-        tell [ C.Func funcLabel envAloc cont arg (C.Body body''') ]
+        let funcTLabel = (funcType, funcLabel)
+            envTAloc = (envType, envAloc)
+        tell [ C.Func funcTLabel envTAloc tCont tArg (C.Body body''') ]
         let funcPlace = ALabel funcLabel
+            funcTPlace = (funcType, funcPlace)
             bodyFreePlaces = map AAloc bodyFree
-        return (funcPlace : bodyFreePlaces)
+            bodyFreeTPlaces = zip bodyFreeTypes bodyFreePlaces
+        return (funcTPlace : bodyFreeTPlaces)
 
-lowerCont :: Cont -> Closures [APlace]
-lowerCont (Cont (_, arg) body) =
+lowerCont :: Cont -> Closures [C.TAPlace]
+lowerCont (Cont (argType, arg) body) =
         do
         body' <- lowerExpr body
-        let bodyFree = freeVars body' [arg]
+        let argType' = lowerType argType
+            tArg = (argType', arg)
+            bodyFreeTyped = freeVars body' [tArg]
+            (bodyFreeTypes, bodyFree) = unzip bodyFreeTyped
         newFreeAlocs <- mapM regenAloc bodyFree
         let body'' = replace (zip bodyFree newFreeAlocs) body'
-            enumeratedNewFreeAlocs = zip [1..] newFreeAlocs
+            newFreeTAlocs = zip bodyFreeTypes newFreeAlocs
+            enumeratedNewFreeTAlocs = zip [1..] newFreeTAlocs
         envAloc <- lift (genAloc "env")
-        let envPlace = AAloc envAloc
-            body''' = foldr (\(i, freeVar) expr -> C.Let freeVar (C.TupleRef envPlace i) expr)
+        let contType = C.TCont argType'
+            envType = C.TTuple (contType : bodyFreeTypes)
+            envPlace = AAloc envAloc
+            envTPlace = (envType, envPlace)
+            body''' = foldr (\(i, freeVar) expr -> C.Let freeVar (C.TupleRef envTPlace i) expr)
                             body''
-                            enumeratedNewFreeAlocs
+                            enumeratedNewFreeTAlocs
         contLabel <- lift (genLabel "cont")
-        tell [ C.Cont contLabel envAloc arg (C.Body body''') ]
+        let contTLabel = (contType, contLabel)
+            envTAloc = (envType, envAloc)
+        tell [ C.Cont contTLabel envTAloc tArg (C.Body body''') ]
         let contPlace = ALabel contLabel
+            contTPlace = (contType, contPlace)
             bodyFreePlaces = map AAloc bodyFree
-        return (contPlace : bodyFreePlaces)
+            bodyFreeTPlaces = zip bodyFreeTypes bodyFreePlaces
+        return (contTPlace : bodyFreeTPlaces)
 
 lowerType :: Type -> C.Type
 lowerType TInt = C.TInt
@@ -116,7 +178,7 @@ lowerType (TFunc cont arg) = C.TClosure (C.TFunc (lowerType cont) (lowerType arg
 lowerType (TCont arg) = C.TClosure (C.TCont (lowerType arg))
 lowerType (TTuple elements) = C.TTuple (map lowerType elements)
 
-freeVars :: C.Expr -> [Aloc] -> [Aloc]
+freeVars :: C.Expr -> [C.TAloc] -> [C.TAloc]
 freeVars expr bound =
         let freeInExpr = freeVarsExpr expr
             boundSet = S.fromList bound
@@ -124,13 +186,13 @@ freeVars expr bound =
             freeVarsList = S.toList freeVars
         in freeVarsList
 
-freeVarsExpr :: C.Expr -> S.Set Aloc
-freeVarsExpr (C.CallFunc func env cont arg) = S.fromList [ aloc | AAloc aloc <- [func, env, cont, arg] ]
-freeVarsExpr (C.CallCont cont env arg) = S.fromList [ aloc | AAloc aloc <- [cont, env, arg] ]
+freeVarsExpr :: C.Expr -> S.Set C.TAloc
+freeVarsExpr (C.CallFunc func env cont arg) = S.fromList [ (typ, aloc) | (typ, AAloc aloc) <- [func, env, cont, arg] ]
+freeVarsExpr (C.CallCont cont env arg) = S.fromList [ (typ, aloc) | (typ, AAloc aloc) <- [cont, env, arg] ]
 freeVarsExpr (C.Let aloc val body) = S.union (freeVarsValue val)
                                              (S.delete aloc (freeVarsExpr body))
 freeVarsExpr (C.LetGlobalTuple _ elements body) =
-        let freeElements = S.fromList [ aloc | AAloc aloc <- elements ]
+        let freeElements = S.fromList [ (typ, aloc) | (typ, AAloc aloc) <- elements ]
             freeInBody = freeVarsExpr body
             freeVars = S.union freeElements freeInBody
         in freeVars
@@ -141,12 +203,12 @@ freeVarsExpr (C.If (C.RelOp op l r) c a) =
             freeVars = S.unions [freePred, freeC, freeA]
         in freeVars
 
-freeVarsValue :: C.Value -> S.Set Aloc
+freeVarsValue :: C.Value -> S.Set C.TAloc
 freeVarsValue (C.Int _) = S.empty
 freeVarsValue (C.Bool _) = S.empty
 freeVarsValue (C.VLabel _) = S.empty
-freeVarsValue (C.Tuple elements) = S.fromList [ aloc | AAloc aloc <- elements ]
-freeVarsValue (C.TupleRef tuple _) = S.fromList [ aloc | AAloc aloc <- [tuple] ]
+freeVarsValue (C.Tuple elements) = S.fromList [ (typ, aloc) | (typ, AAloc aloc) <- elements ]
+freeVarsValue (C.TupleRef tuple _) = S.fromList [ (typ, aloc) | (typ, AAloc aloc) <- [tuple] ]
 freeVarsValue (C.NumOp _ l r) = S.fromList [l, r]
 
 replace :: [(Aloc, Aloc)] -> C.Expr -> C.Expr
@@ -177,18 +239,24 @@ replaceValue env (C.NumOp op l r) =
         let [l', r'] = replaceAlocs env [l, r]
         in C.NumOp op l' r'
 
-replacePlaces :: M.Map Aloc Aloc -> [APlace] -> [APlace]
+replacePlaces :: M.Map Aloc Aloc -> [C.TAPlace] -> [C.TAPlace]
 replacePlaces env places = map (replacePlace env) places
 
-replacePlace :: M.Map Aloc Aloc -> APlace -> APlace
-replacePlace env place@(AAloc aloc) = maybe place AAloc (M.lookup aloc env)
-replacePlace _ place@(ALabel _) = place
+replacePlace :: M.Map Aloc Aloc -> C.TAPlace -> C.TAPlace
+replacePlace env place@(typ, AAloc aloc) =
+        case M.lookup aloc env of
+             Nothing -> place
+             Just aloc' -> (typ, AAloc aloc')
+replacePlace _ place@(_, ALabel _) = place
 
-replaceAlocs :: M.Map Aloc Aloc -> [Aloc] -> [Aloc]
+replaceAlocs :: M.Map Aloc Aloc -> [C.TAloc] -> [C.TAloc]
 replaceAlocs env places = map (replaceAloc env) places
 
-replaceAloc :: M.Map Aloc Aloc -> Aloc -> Aloc
-replaceAloc env aloc = maybe aloc id (M.lookup aloc env)
+replaceAloc :: M.Map Aloc Aloc -> C.TAloc -> C.TAloc
+replaceAloc env tAloc@(typ, aloc) =
+        case M.lookup aloc env of
+             Nothing -> tAloc
+             Just aloc' -> (typ, aloc')
 
 regenAloc :: Aloc -> Closures Aloc
 regenAloc (Aloc template _) = lift (genAloc template)

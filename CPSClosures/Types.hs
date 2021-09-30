@@ -8,7 +8,7 @@ data Type = TInt
           | TCont Type
           | TTuple [Type]
           | TClosure Type
-          deriving Show
+          deriving (Eq, Ord, Show)
 
 type Tagged val = (Type, val)
 

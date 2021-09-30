@@ -48,6 +48,33 @@ prettyPrintCPS program =
           . TAST.lower
           ) program
 
+prettyPrintCPSClosures :: Program -> IO ()
+prettyPrintCPSClosures program =
+        ( putStrLn
+          . evalGensym
+          . fmap CPSClosures.prettyPrint
+          . (>>= CPS.lower)
+          . (>>= Globals.lower)
+          . (>>= Pred.lower)
+          . fmap Lambda.lower
+          . TAST.lower
+          ) program
+
+prettyPrintCPSRegisters :: Program -> IO ()
+prettyPrintCPSRegisters program =
+        ( putStrLn
+          . evalGensym
+          . fmap CPSRegisters.prettyPrint
+          . fmap CPSFree.lower
+          . fmap CPSAsm.lower
+          . (>>= CPSClosures.lower)
+          . (>>= CPS.lower)
+          . (>>= Globals.lower)
+          . (>>= Pred.lower)
+          . fmap Lambda.lower
+          . TAST.lower
+          ) program
+
 handleError :: String -> IO ()
 handleError msg =
         do

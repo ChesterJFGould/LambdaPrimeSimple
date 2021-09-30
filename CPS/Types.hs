@@ -25,7 +25,7 @@ data Expr = CallFunc TAPlace TAPlace TAPlace
           | If Pred Expr Expr
           deriving Show
 
-data Func = Func TAloc TAloc Expr
+data Func = Func TAloc TAloc Expr -- Cont, Arg
           deriving Show
 
 data Cont = Cont TAloc Expr

@@ -96,8 +96,8 @@ typeCheckArgsBody (nameLoc, Var defName) expectedBodyType [] body@(bodyPos, _) =
 typeCheckArgsBody defName (T.TFunc from to) ((argLoc, arg@(Var argName)) : rest) body =
         do
         putVarType arg from
-        (T.Def defName' args' body') <- typeCheckArgsBody defName to rest body
-        return (T.Def defName' ((argLoc, from, T.Var argName) : args') body')
+        (T.Def (defNameLoc, defNameType, defName') args' body') <- typeCheckArgsBody defName to rest body
+        return (T.Def (defNameLoc, T.TFunc from defNameType, defName') ((argLoc, from, T.Var argName) : args') body')
 typeCheckArgsBody (_, Var defName) _ ((argPos, _) : _) _ =
         throwError [ WithPos argPos
                              ( unwords [ "Too many arguments in definition for"
