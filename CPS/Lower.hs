@@ -112,8 +112,8 @@ lowerCont (Cont (_, arg) body) =
 lowerType :: Type -> C.Type
 lowerType TInt = C.TInt
 lowerType TBool = C.TBool
-lowerType (TFunc cont arg) = C.Closure (C.TFunc (lowerType cont) (lowerType arg))
-lowerType (TCont arg) = C.Closure (C.TCont (lowerType arg))
+lowerType (TFunc cont arg) = C.TClosure (C.TFunc (lowerType cont) (lowerType arg))
+lowerType (TCont arg) = C.TClosure (C.TCont (lowerType arg))
 lowerType (TTuple elements) = C.TTuple (map lowerType elements)
 
 freeVars :: C.Expr -> [Aloc] -> [Aloc]
