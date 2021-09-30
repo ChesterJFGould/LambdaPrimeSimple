@@ -5,7 +5,7 @@ As such everything is subject to change including the syntax (which I don't like
 # Design
 The compiler is designed around a Continuation Passing Style (CPS) intermediate language.
 This allows for a very simple design as all statements are tail expressions and so things such as saving registers across calls just do not need to be implemented.
-However this form does come with some drawbacks such as saving of all live variables when a conditional isn't in tail position in the original source.
+However this form does come with some drawbacks such as the saving of all live variables when a conditional isn't in tail position in the original source.
 In the future I hope to exploit to strengths of CPS (e.g. beta reduction is always sound even when computing the arguments has side-effects) to offset these inefficiencies and even potentially eliminate them altogether.
 
 # Current Syntax
@@ -94,7 +94,7 @@ These are things I want to implement, some of them would be significant enough t
 + A generational garbage collector based on "CONS should not CONS its arguments, part II: Cheney on the M.T.A.".
 + Support for multi-argument functions beginning at the `Lambda` language. Then using this for the worker/wrapper optimization as layed out in "Types are Calling Conventions" and callee saved registers as shown in "Calling with Continuations".
 + User defined data types and pattern matching in the ML tradition.
-+ Polymorphism through a type system based on System-F (as is traditional). The hardest part of this might actually just be the type checker as we could just assume all values a representable as a machine word and then just perform operations upon those.
++ Polymorphism through a type system based on System-F (as is traditional). The hardest part of this might actually just be the type checker as we could just assume all values are representable as a machine word and then just perform operations upon those.
 + First class continuations.
 	- This might be done through exposing an implicit `return` variable in every function (think like the implicit `this` variable in objects) which is bound to the continuation of that function. This could then be used to implement `call/cc` as a derived form as the following (although it might be actually useless, it serves to demonstrate the idea).
 
