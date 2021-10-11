@@ -36,6 +36,7 @@ executable Simple
 	  CPSAsm.Lower,
 	  CPSAsm.Types,
 	  CPSClosures,
+	  CPSClosures.CompileC,
 	  CPSClosures.Lower,
 	  CPSClosures.PrettyPrint,
 	  CPSClosures.Types,

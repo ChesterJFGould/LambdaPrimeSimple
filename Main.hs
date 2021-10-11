@@ -37,6 +37,21 @@ compile program =
           . TAST.lower
           ) program
 
+compileC :: Program -> IO ()
+compileC program =
+        do
+        prelude <- readFile "Runtime/prelude.c"
+        init <- readFile "Runtime/init.c"
+        ( putStrLn
+          . evalGensym
+          . fmap (CPSClosures.compileC prelude init)
+          . (>>= CPS.lower)
+          . (>>= Globals.lower)
+          . (>>= Pred.lower)
+          . fmap Lambda.lower
+          . TAST.lower
+          ) program
+
 prettyPrintCPS :: Program -> IO ()
 prettyPrintCPS program =
         ( putStrLn
@@ -83,6 +98,6 @@ handleError msg =
 
 main :: IO ()
 main = do
-       getContents >>= either handleError compile
+       getContents >>= either handleError compileC
                        . (>>= AST.check)
                        . AST.parse "stdin"
