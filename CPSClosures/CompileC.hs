@@ -7,7 +7,8 @@ import Data.List
 
 compileC :: String -> String -> Program -> String
 compileC prelude init program@(Program defs body) =
-        prelude ++ intercalate "\n" ( concat [ map cDecl (globalTuples program ++ map defLabel defs)
+        prelude ++ intercalate "\n" ( concat [ [""]
+                                             , map cDecl (globalTuples program ++ map defLabel defs)
                                              , [""]
                                              , intercalate [""] (map cDef defs)
                                              , [""]
