@@ -1,0 +1,28 @@
+module AST.Types where
+
+data Program = Program ProgramDef
+
+data TypeAnn = TAInt
+             | TABool
+             | TABool TypeAnn TypeAnn
+
+data ProgramDef = Main
+                | LetDef Def ProgramDef
+                | LetRecDefs [Def] ProgramDef
+
+data Def = Def Var TypeAnn [Var] Body
+
+data Body = Body Expr
+
+data Expr = Value Value
+          | BinOp BinOp Expr Expr
+          | Apply Expr Expr
+          | Lambda Var TypeAnn Expr
+          | Let Var Expr Expr
+          | If Expr Expr Expr
+
+data Value = Int Integer
+           | Bool Bool
+           | VVar Var
+
+data Var = Var String
