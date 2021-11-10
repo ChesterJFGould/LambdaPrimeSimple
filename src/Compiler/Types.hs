@@ -7,8 +7,12 @@ data FileLocation = FileLocation { file :: String
                                  , column :: Int
                                  }
 
+instance Show FileLocation where
+         show (FileLocation _ line column) = show line ++ " : " ++ show column
+
 data BinOp = Num NumOp
            | Rel RelOp
+           deriving Show
 
 data RelOp = Lt
            | Gt
@@ -16,12 +20,14 @@ data RelOp = Lt
            | Lte
            | Gte
            | Neq
+           deriving Show
 
 data NumOp = Add
            | Sub
            | Mul
            | Div
            | Mod
+           deriving Show
 
 data Aloc = Aloc String Int
 

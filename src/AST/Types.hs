@@ -2,6 +2,9 @@ module AST.Types where
 
 import Compiler.Types
 
+data CheckError = WithPos FileLocation String
+                | WithoutPos String
+
 type Tagged a = (FileLocation, a)
 
 type TTypeAnn = Tagged TypeAnn
@@ -9,38 +12,51 @@ type TTypeAnn = Tagged TypeAnn
 data TypeAnn = TAInt
              | TABool
              | TAFunc TTypeAnn TTypeAnn
+             deriving Show
 
-data Program = Program ProgramDef
+data Program = Program TProgramDef
+             deriving Show
 
 type TProgramDef = Tagged ProgramDef
 
 data ProgramDef = Main
-                | LetDef TDef TProgramDef
-                | LetRecDefs [TDef] TProgramDef
-
-type TDef = Tagged Def
-
-data Def = Def Var TypeAnn [Var] TBody
-
-type TBody = Tagged Body
-
-data Body = Body Expr
-
-type TExpr = Tagged Expr
-
-data Expr = Value TValue
-          | BinOp BinOp TExpr TExpr
-          | Apply TExpr TExpr
-          | Lambda TVar TypeAnn TExpr
-          | Let TVar TExpr TExpr
-          | If TExpr TExpr TExpr
+                | LetValue TValue TProgramDef
+                | LetFuncs [TFunc] TProgramDef
+                deriving Show
 
 type TValue = Tagged Value
 
-data Value = Int Integer
-           | Bool Bool
-           | VVar TVar
+data Value = Value TVar TTypeAnn TBody
+           deriving Show
+
+type TFunc = Tagged Func
+
+data Func = Func TVar TTypeAnn [TVar] TBody
+          deriving Show
+
+type TBody = Tagged Body
+
+data Body = Body TExpr
+          deriving Show
+
+type TExpr = Tagged Expr
+
+data Expr = Atom TAtom
+          | BinOp BinOp TExpr TExpr
+          | Apply TExpr TExpr
+          | Lambda TVar TTypeAnn TExpr
+          | Let TVar TExpr TExpr
+          | If TExpr TExpr TExpr
+          deriving Show
+
+type TAtom = Tagged Atom
+
+data Atom = Int Integer
+          | Bool Bool
+          | VVar TVar
+          deriving Show
 
 type TVar = Tagged Var
 
 data Var = Var String
+         deriving Show

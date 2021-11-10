@@ -8,34 +8,36 @@ data Type = TInt
 
 type Tagged a = (FileLocation, Type, a)
 
-data Program = Program ProgramDef
+data Program = Program TProgramDef
 
 type TProgramDef = Tagged ProgramDef
 
 data ProgramDef = Main
-                | LetDef Def TProgramDef
-                | LetRecDefs [Def] TProgramDef
+                | LetValue Value TProgramDef
+                | LetFuncs [Func] TProgramDef
 
-data Def = Def TVar [TVar] TBody
+data Func = Func TVar [TVar] TBody
+
+data Value = Value TVar TBody
 
 type TBody = Tagged Body
 
-data Body = Body Expr
+data Body = Body TExpr
 
 type TExpr = Tagged Expr
 
-data Expr = Value TValue
+data Expr = Atom TAtom
           | BinOp BinOp TExpr TExpr
           | Apply TExpr TExpr
           | Lambda TVar TExpr
           | Let TVar TExpr TExpr
           | If TExpr TExpr TExpr
 
-type TValue = Tagged Value
+type TAtom = Tagged Atom
 
-data Value = Int Integer
-           | Bool Bool
-           | VVar TVar
+data Atom = Int Integer
+          | Bool Bool
+          | VVar TVar
 
 type TVar = Tagged Var
 

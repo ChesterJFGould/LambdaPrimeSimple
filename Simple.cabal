@@ -27,6 +27,8 @@ executable Simple
     -- Modules included in this executable, other than Main.
     other-modules:
     	AST,
+    	AST.Parse,
+    	AST.TypeCheck,
     	AST.Types,
     	TAST.Types,
     	Compiler.Types,
@@ -43,6 +45,10 @@ executable Simple
     -- other-extensions:
     build-depends:
     	base ^>=4.14.1.0,
-    	ordered-containers
+    	containers,
+    	ordered-containers,
+    	megaparsec,
+    	mtl,
+    	pretty-simple
     hs-source-dirs:   src
     default-language: Haskell2010
