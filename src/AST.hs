@@ -1,6 +1,8 @@
 module AST
-( parse
+( check
+, parse
 )
 where
 
+import AST.Check
 import AST.Parse
