@@ -29,6 +29,9 @@ data NumOp = Add
            | Mod
            deriving Show
 
+data Var = Var String
+         deriving (Eq, Ord, Show)
+
 data Aloc = Aloc String Int
 
 data Mloc = MAloc Aloc

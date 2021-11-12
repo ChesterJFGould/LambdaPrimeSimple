@@ -57,6 +57,3 @@ data Atom = Int Integer
           deriving Show
 
 type TVar = Tagged Var
-
-data Var = Var String
-         deriving Show

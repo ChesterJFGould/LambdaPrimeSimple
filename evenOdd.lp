@@ -10,4 +10,4 @@ and odd? : Int -> Bool
 fun boolToInt : Bool -> Int
   | n = if n then 1 else 0
 
-def main : Int = boolToInt  (even? 10)
+val main : Int = boolToInt  (even? 10)

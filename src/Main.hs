@@ -16,4 +16,5 @@ main :: IO ()
 main =
         do
         getContents >>= either handleError pPrintForceColor
+                        . (>>= AST.check)
                         . AST.parse "stdin"

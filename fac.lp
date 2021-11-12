@@ -3,4 +3,4 @@ fun fac : Int -> Int
         then 1
         else n * fac (n - 1)
 
-def main : Int = fac 10
+val main : Int = fac 10

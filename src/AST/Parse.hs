@@ -40,7 +40,7 @@ typeOps = ( [ binopsr [ (symbol "->", TAFunc) ] ]
           )
 
 keywords :: [String]
-keywords = [ "if", "then", "else", "let", "in", "def", "fun", "and", "True", "False" ]
+keywords = [ "if", "then", "else", "let", "in", "val", "fun", "and", "True", "False" ]
 
 parse :: String -> String -> Either String Program
 parse fileName text = either (Left . errorBundlePretty)
@@ -69,10 +69,10 @@ value = tag ( Value <$> (symbol "val" >> hspace >> var)
 
 funcs :: Parser [TFunc]
 funcs = do
-       first <- funDef "fun"
-       hspace
-       rest <- many (funDef "and" <* hspace)
-       return (first : rest)
+        first <- funDef "fun"
+        hspace
+        rest <- many (funDef "and" <* hspace)
+        return (first : rest)
 
 funDef :: String -> Parser TFunc
 funDef keyword = tag ( Func <$> (symbol keyword >> hspace >> var)
