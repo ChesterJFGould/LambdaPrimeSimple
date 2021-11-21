@@ -21,18 +21,13 @@ data ProgramDef = Main
 
 type TFunc = Tagged Func
 
-data Func = Func TVar [TVar] TBody
+data Func = Func TVar [TVar] TExpr
           deriving Show
 
 type TValue = Tagged Value
 
-data Value = Value TVar TBody
+data Value = Value TVar TExpr
            deriving Show
-
-type TBody = Tagged Body
-
-data Body = Body TExpr
-          deriving Show
 
 type TExpr = Tagged Expr
 
@@ -48,7 +43,7 @@ type TAtom = Tagged Atom
 
 data Atom = Int Integer
           | Bool Bool
-          | VVar TVar
+          | AtVar TVar
           deriving Show
 
 type TVar = Tagged Var

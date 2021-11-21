@@ -32,3 +32,7 @@ Text - Parse into AST > AST
 # TODO
 + Use GADTs to prove that LetRec only contains lambdas
 	+ Provide an empty type for each constructor (`data Lambda`) and then parameterize the `Expr` type over that
++ Maybe eliminate `Body` types in AST and TAST
++ It's conceivable that we could move the translation from AST to TAST and therefore all the checking into the parser.
+	+ This way we could have really nice and unified error message not only for parse errors, but for type, undefined, etc. errors.
+	+ It could probably also be done in such a way that it doesn't really complicate things at all.

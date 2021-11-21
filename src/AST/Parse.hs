@@ -63,7 +63,7 @@ programDef = hspace >> tag ( asum [ LetValue <$> value <*> programDef
 value :: Parser TValue
 value = tag ( Value <$> (symbol "val" >> hspace >> var)
                     <*> (hspace >> typeAnn)
-                    <*> (hspace >> char '=' >> hspace >> body)
+                    <*> (hspace >> char '=' >> hspace >> expr)
             )
             <?> "value definition"
 
@@ -78,7 +78,7 @@ funDef :: String -> Parser TFunc
 funDef keyword = tag ( Func <$> (symbol keyword >> hspace >> var)
                             <*> (hspace >> typeAnn)
                             <*> (hspace >> char '|' >> hspace >> some ((var <?> "argument variable") <* hspace))
-                            <*> (hspace >> char '=' >> hspace >> body)
+                            <*> (hspace >> char '=' >> hspace >> expr)
                      )
                      <?> "function definition"
 
@@ -100,9 +100,6 @@ baseType = tag ( asum [ symbol "Int" >> return TAInt
                       ]
                )
                <?> "type"
-
-body :: Parser TBody
-body = tag ( Body <$> expr)
 
 expr :: Parser TExpr
 expr = asum [ exprStmt
@@ -165,7 +162,7 @@ parens p = char '(' *> hspace *> p <* hspace <* char ')'
 atomP :: Parser Expr
 atomP = Atom <$> tag ( asum [ intP
                             , boolP
-                            , VVar <$> var
+                            , AtVar <$> var
                             ]
                      )
 

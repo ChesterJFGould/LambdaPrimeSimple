@@ -4,7 +4,7 @@ fun even? : Int -> Bool
         else odd? (n - 1)
 and odd? : Int -> Bool
   | n = if n == 0
-        then false
+        then False
         else even? (n - 1)
 
 fun boolToInt : Bool -> Int

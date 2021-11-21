@@ -57,7 +57,7 @@ typeCheckValue :: TValue -> Check T.TValue
 typeCheckValue (loc, Value var@(_, name) typeAnn body) =
         do
         let expectedType = typeAnnToType typeAnn
-        body' <- typeCheckBody body
+        body' <- typeCheckExpr body
         if expectedType == tType body'
         then do
              let typ = tType body'
@@ -80,7 +80,7 @@ typeCheckFunc func@(_, Func _ typeAnn _ _) =
 typeCheckFunc' :: T.Type -> TFunc -> Check T.TFunc
 typeCheckFunc' expectedType (loc, Func var@(_, name) _ [] body) =
         do
-        body' <- typeCheckBody body
+        body' <- typeCheckExpr body
         if expectedType == tType body'
         then do
              let typ = tType body'
@@ -103,12 +103,6 @@ typeCheckFunc' _ (loc, Func var@(_, name) _ _ _) =
                          , quote (varString name)
                          , "has too many arguments with respect to its declared type"
                          ]
-
-typeCheckBody :: TBody -> Check T.TBody
-typeCheckBody (loc, Body expr) =
-        do
-        expr' <- typeCheckExpr expr
-        return (loc, tType expr', T.Body expr')
 
 typeCheckExpr :: TExpr -> Check T.TExpr
 typeCheckExpr (loc, Atom atom) =
@@ -185,11 +179,11 @@ typeCheckExpr (loc, If p c a) =
 typeCheckAtom :: TAtom -> Check T.TAtom
 typeCheckAtom (loc, Int i) = return (loc, T.TInt, T.Int i)
 typeCheckAtom (loc, Bool b) = return (loc, T.TBool, T.Bool b)
-typeCheckAtom (loc, VVar (varLoc, var)) =
+typeCheckAtom (loc, AtVar (varLoc, var)) =
         do
         maybeVarT <- lookupVarType var
         case maybeVarT of
-             Just varT -> return (loc, varT, T.VVar (varLoc, varT, var))
+             Just varT -> return (loc, varT, T.AtVar (varLoc, varT, var))
              Nothing -> errorWithPos varLoc [ "Undefined variable"
                                             , quote (varString var)
                                             ]

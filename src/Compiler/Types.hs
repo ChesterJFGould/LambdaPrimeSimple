@@ -33,6 +33,7 @@ data Var = Var String
          deriving (Eq, Ord, Show)
 
 data Aloc = Aloc String Int
+          deriving Show
 
 data Mloc = MAloc Aloc
           | MReg Reg
