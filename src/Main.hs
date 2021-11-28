@@ -3,7 +3,9 @@ module Main where
 import Compiler.Gensym
 
 import AST
+import CPS
 import Lambda
+import Pred
 import TAST
 import TAST.Types
 
@@ -15,8 +17,10 @@ compile :: Program -> IO ()
 compile program =
         do
         ( putStrLn
-          . Lambda.prettyPrint
+          . CPS.prettyPrint
           . evalGensym
+          . (>>= Pred.lower)
+          . fmap Lambda.lower
           . TAST.lower
           ) program
 

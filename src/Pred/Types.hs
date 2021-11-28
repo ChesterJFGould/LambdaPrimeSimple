@@ -12,22 +12,20 @@ data Program = Program TExpr
 
 type TExpr = Tagged Expr
 
-data Expr = Value TValue
-          | NumOp NumOp
+data Expr = Atom TAtom
+          | NumOp NumOp TExpr TExpr
           | Apply TExpr TExpr
           | Lambda TAloc TExpr
           | Let TAloc TExpr TExpr
           | LetRec [TAloc] [TExpr] TExpr
-          | If TPred TExpr TExpr
-
-type TPred = Tagged Pred
+          | If Pred TExpr TExpr
 
 data Pred = RelOp RelOp TExpr TExpr
 
-type TValue = Tagged Value
+type TAtom = Tagged Atom
 
-data Value = Int Integer
-           | Bool Bool
-           | VAloc TAloc
+data Atom = Int Integer
+          | Bool Bool
+          | AtAloc TAloc
 
 type TAloc = Tagged Aloc

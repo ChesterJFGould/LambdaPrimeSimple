@@ -96,8 +96,8 @@ typeCheckFunc' expectedType (loc, Func var@(_, name) _ [] body) =
 typeCheckFunc' (T.TFunc fromT toT) (loc, Func var typeAnn (arg@(argLoc, argName) : rest) body) =
         do
         putVarType argName fromT
-        (loc, typ, T.Func var args body) <- typeCheckFunc' toT (loc, Func var typeAnn rest body)
-        return (loc, T.TFunc fromT typ, T.Func var ((argLoc, fromT, argName) : args) body)
+        (loc, typ, T.Func (varLoc, varTyp, var) args body) <- typeCheckFunc' toT (loc, Func var typeAnn rest body)
+        return (loc, T.TFunc fromT typ, T.Func (varLoc, T.TFunc fromT varTyp, var) ((argLoc, fromT, argName) : args) body)
 typeCheckFunc' _ (loc, Func var@(_, name) _ _ _) =
         errorWithPos loc [ "Definition of"
                          , quote (varString name)

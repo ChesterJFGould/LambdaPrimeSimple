@@ -1,10 +1,10 @@
-module Lambda.PrettyPrint
+module Pred.PrettyPrint
 ( prettyPrint
 )
 where
 
 import Compiler.Types
-import Lambda.Types
+import Pred.Types
 
 import Data.List
 
@@ -13,9 +13,9 @@ prettyPrint (Program body) = unlines' (prettyPrintExpr body)
 
 prettyPrintExpr :: TExpr -> [String]
 prettyPrintExpr (typ, Atom atom) = [ prettyPrintAtom atom ]
-prettyPrintExpr (typ, BinOp op l r) =
+prettyPrintExpr (typ, NumOp op l r) =
         annotateLines typ ( joins [ prettyPrintExpr l
-                                  , [ concat [ " ", prettyPrintOp op, " " ] ]
+                                  , [ concat [ " ", prettyPrintNumOp op, " " ] ]
                                   , prettyPrintExpr r
                                   ]
                           )
@@ -45,13 +45,20 @@ prettyPrintExpr (typ, LetRec alocs vals body) =
               ]
 prettyPrintExpr (typ, If p c a) =
         annotateLines typ ( joins [ [ "if " ]
-                                  , indentTailBy 3 (prettyPrintExpr p)
+                                  , indentTailBy 3 (prettyPrintPred p)
                                   , [ "", "then " ]
                                   , indentTailBy 5 (prettyPrintExpr c)
                                   , [ "", "else " ]
                                   , indentTailBy 5 (prettyPrintExpr a)
                                   ]
                           )
+
+prettyPrintPred :: Pred -> [String]
+prettyPrintPred (RelOp op l r) =
+        joins [ prettyPrintExpr l
+              , [ concat [ " ", prettyPrintRelOp op, " " ] ]
+              , prettyPrintExpr r
+              ]
 
 prettyPrintLet :: TAloc -> TExpr -> [String]
 prettyPrintLet aloc val =
@@ -74,18 +81,20 @@ prettyPrintType (TFunc f t) = concat [ prettyPrintType f, " -> ", prettyPrintTyp
 prettyPrintAloc :: TAloc -> String
 prettyPrintAloc (typ, Aloc template n) = annotate typ (concat [ template , "_", show n ])
 
-prettyPrintOp :: BinOp -> String
-prettyPrintOp (Num Add) = "+"
-prettyPrintOp (Num Sub) = "-"
-prettyPrintOp (Num Mul) = "*"
-prettyPrintOp (Num Div) = "/"
-prettyPrintOp (Num Mod) = "%"
-prettyPrintOp (Rel Lt) = "<"
-prettyPrintOp (Rel Gt) = ">"
-prettyPrintOp (Rel Eq) = "=="
-prettyPrintOp (Rel Lte) = "<="
-prettyPrintOp (Rel Gte) = ">="
-prettyPrintOp (Rel Neq) = "/="
+prettyPrintNumOp :: NumOp -> String
+prettyPrintNumOp Add = "+"
+prettyPrintNumOp Sub = "-"
+prettyPrintNumOp Mul = "*"
+prettyPrintNumOp Div = "/"
+prettyPrintNumOp Mod = "%"
+
+prettyPrintRelOp :: RelOp -> String
+prettyPrintRelOp Lt = "<"
+prettyPrintRelOp Gt = ">"
+prettyPrintRelOp Eq = "=="
+prettyPrintRelOp Lte = "<="
+prettyPrintRelOp Gte = ">="
+prettyPrintRelOp Neq = "/="
 
 indentBy :: Int -> [String] -> [String]
 indentBy n lines = map ((take n (repeat ' ')) ++) lines

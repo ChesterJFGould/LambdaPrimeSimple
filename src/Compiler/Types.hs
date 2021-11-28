@@ -33,12 +33,14 @@ data Var = Var String
          deriving (Eq, Ord, Show)
 
 data Aloc = Aloc String Int
-          deriving Show
+          deriving (Eq, Ord, Show)
 
 data Mloc = MAloc Aloc
           | MReg Reg
 
 data Label = Label String Int
+           | HaltLabel
+           deriving Show
 
 data APlace = AAloc Aloc
             | ALabel Label
